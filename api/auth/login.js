@@ -4,32 +4,32 @@ import dbConnect from "../../lib/db.js";
 import User from "../../models/User.js";
 
 export default async function handler(req, res) {
+
+  // ✅ CORS HEADERS (VERY IMPORTANT)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // ✅ Handle preflight request
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
-    console.log("LOGIN HIT");
-    console.log("ENV CHECK:", {
-      mongo: !!process.env.MONGO_URI,
-      jwt: !!process.env.JWT_SECRET
-    });
-
     await dbConnect();
 
     const { email, password } = req.body;
-    console.log("BODY:", req.body);
 
     const user = await User.findOne({ email });
-    console.log("USER FOUND:", !!user);
-
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     const valid = await bcrypt.compare(password, user.password);
-    console.log("PASSWORD VALID:", valid);
-
     if (!valid) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
@@ -48,10 +48,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("LOGIN ERROR:", err);
-    return res.status(500).json({
-      message: "Internal server error",
-      error: err.message
-    });
+    console.error(err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 }
