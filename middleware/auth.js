@@ -1,14 +1,9 @@
-const jwt = require("jsonwebtoken");
+import jwt from "jsonwebtoken";
 
-module.exports = function auth(req, res, next) {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "No token" });
+export function auth(req) {
+  const header = req.headers.authorization;
+  if (!header) throw new Error("No token");
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch {
-    res.status(401).json({ message: "Invalid token" });
-  }
-};
+  const token = header.split(" ")[1];
+  return jwt.verify(token, process.env.JWT_SECRET);
+}

@@ -1,7 +1,5 @@
-module.exports = function allow(role) {
-  return (req, res, next) => {
-    if (req.user.role !== role)
-      return res.status(403).json({ message: "Forbidden" });
-    next();
-  };
-};
+export function allow(user, role) {
+  if (user.role !== role) {
+    throw new Error("Forbidden");
+  }
+}
