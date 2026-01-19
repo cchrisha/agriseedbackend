@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const user = auth(req);
+    const admin = auth(req);
     allow(user, "admin");
 
     const users = await User.find()
