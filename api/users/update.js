@@ -79,7 +79,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 🔁 EMAIL UNIQUE CHECK
     if (email && email !== targetUser.email) {
       const exists = await User.findOne({ email });
       if (exists) {
@@ -87,12 +86,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // ✏️ UPDATE PROFILE
     if (name !== undefined) targetUser.name = name;
     if (email !== undefined) targetUser.email = email;
     if (role !== undefined) targetUser.role = role;
 
-    // 🔐 UPDATE PASSWORD (OPTIONAL)
     if (newPassword) {
       const hash = await bcrypt.hash(newPassword, 10);
       targetUser.password = hash;
