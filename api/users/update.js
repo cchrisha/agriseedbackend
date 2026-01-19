@@ -1,7 +1,7 @@
-import dbConnect from "../../lib/db";
-import User from "../../models/User";
-import { auth } from "../../middleware/auth";
-import { allow } from "../../middleware/allow";
+import dbConnect from "../../lib/db.js";
+import User from "../../models/User.js";
+import { auth } from "../../middleware/auth.js";
+import { allow } from "../../middleware/allow.js";
 
 export default async function handler(req, res) {
   if (req.method !== "PUT")
