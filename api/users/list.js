@@ -10,8 +10,8 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const admin = auth(req);
-    allow(admin, "admin");
+    const user = auth(req);
+    allow(user, "admin");
 
     const users = await User.find()
       .select("-password")
