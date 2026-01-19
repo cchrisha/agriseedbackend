@@ -4,21 +4,29 @@ import { auth } from "../../middleware/auth";
 import { allow } from "../../middleware/allow";
 
 export default async function handler(req, res) {
-  if (req.method !== "GET")
+  if (req.method !== "GET") {
     return res.status(405).json({ message: "Method not allowed" });
+  }
 
   try {
     await dbConnect();
 
-    const admin = auth(req);
-    allow(user, "admin");
+    let admin;
+    try {
+      admin = auth(req);       // 🔐 decode token
+      allow(admin, "admin");   // 🔒 check role
+    } catch (authErr) {
+      return res.status(401).json({ message: authErr.message });
+    }
 
     const users = await User.find()
       .select("-password")
       .sort({ createdAt: -1 });
 
-    res.json(users);
+    return res.status(200).json(users);
+
   } catch (err) {
-    res.status(403).json({ message: err.message });
+    console.error("LIST USERS ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 }
