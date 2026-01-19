@@ -8,12 +8,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  await dbConnect();
+await dbConnect();
 
-  const user = auth(req);
-  if (!allow(user, "admin")) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+const user = auth(req);
+if (!user || !allow(user, "admin")) {
+  return res.status(401).json({ message: "Unauthorized" });
+}
 
   const users = await User.find()
     .select("-password")
