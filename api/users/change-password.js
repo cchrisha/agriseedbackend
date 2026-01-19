@@ -1,45 +1,45 @@
-import bcrypt from "bcryptjs";
-import dbConnect from "../../lib/db.js";
-import User from "../../models/User.js";
-import { auth } from "../../middleware/auth.js";
+// import bcrypt from "bcryptjs";
+// import dbConnect from "../../lib/db.js";
+// import User from "../../models/User.js";
+// import { auth } from "../../middleware/auth.js";
 
-export default async function handler(req, res) {
-  if (req.method !== "PUT") {
-    return res.status(405).json({ message: "Method not allowed" });
-  }
+// export default async function handler(req, res) {
+//   if (req.method !== "PUT") {
+//     return res.status(405).json({ message: "Method not allowed" });
+//   }
 
-  try {
-    await dbConnect();
+//   try {
+//     await dbConnect();
 
-  const user = auth(req);
-  if (!user || !allow(user, "admin")) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+//   const user = auth(req);
+//   if (!user || !allow(user, "admin")) {
+//     return res.status(401).json({ message: "Unauthorized" });
+//   }
 
-    const { userId, newPassword } = req.body;
+//     const { userId, newPassword } = req.body;
 
-    if (!userId || !newPassword) {
-      return res.status(400).json({ message: "Missing fields" });
-    }
+//     if (!userId || !newPassword) {
+//       return res.status(400).json({ message: "Missing fields" });
+//     }
 
-    // 🔒 ADMIN OR SELF ONLY
-    if (requester.role !== "admin" && requester.id !== userId) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
+//     // 🔒 ADMIN OR SELF ONLY
+//     if (requester.role !== "admin" && requester.id !== userId) {
+//       return res.status(403).json({ message: "Not authorized" });
+//     }
 
-    const targetUser = await User.findById(userId);
-    if (!targetUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
+//     const targetUser = await User.findById(userId);
+//     if (!targetUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
 
-    const hash = await bcrypt.hash(newPassword, 10);
-    targetUser.password = hash;
-    await targetUser.save();
+//     const hash = await bcrypt.hash(newPassword, 10);
+//     targetUser.password = hash;
+//     await targetUser.save();
 
-    return res.json({ message: "Password updated successfully" });
+//     return res.json({ message: "Password updated successfully" });
 
-  } catch (err) {
-    console.error("CHANGE PASSWORD ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-}
+//   } catch (err) {
+//     console.error("CHANGE PASSWORD ERROR:", err);
+//     return res.status(500).json({ message: "Server error" });
+//   }
+// }
