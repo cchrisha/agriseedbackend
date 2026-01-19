@@ -1,0 +1,26 @@
+import dbConnect from "../../lib/db";
+import User from "../../models/User";
+import { auth } from "../../middleware/auth";
+import { allow } from "../../middleware/allow";
+
+export default async function handler(req, res) {
+  if (req.method !== "DELETE")
+    return res.status(405).json({ message: "Method not allowed" });
+
+  try {
+    await dbConnect();
+
+    const admin = auth(req);
+    allow(admin, "admin");
+
+    const { userId } = req.body;
+
+    const user = await User.findByIdAndDelete(userId);
+    if (!user)
+      return res.status(404).json({ message: "User not found" });
+
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    res.status(403).json({ message: err.message });
+  }
+}
