@@ -11,11 +11,10 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    // 🔐 AUTH CHECK
-    const requester = auth(req);
-    if (!requester || !allow(requester, "admin")) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+  const user = auth(req);
+  if (!user || !allow(user, "admin")) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
 
     const { userId, name, email, role } = req.body;
 
@@ -28,7 +27,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 🔁 EMAIL UNIQUE CHECK
     if (email && email !== targetUser.email) {
       const exists = await User.findOne({ email });
       if (exists) {
@@ -36,7 +34,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // ✏️ UPDATE FIELDS
     targetUser.name = name ?? targetUser.name;
     targetUser.email = email ?? targetUser.email;
     targetUser.role = role ?? targetUser.role;
