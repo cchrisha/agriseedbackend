@@ -9,17 +9,22 @@ export default async function handler(req, res) {
   if (req.method !== "GET")
     return res.status(405).json({ message: "Method not allowed" });
 
-  await dbConnect();
+  try {
+    await dbConnect();
 
-  const user = auth(req);
-  if (!user || !allow(user, ROLES))
-    return res.status(401).json({ message: "Unauthorized" });
+    const user = auth(req);
+    if (!user || !allow(user, ROLES))
+      return res.status(401).json({ message: "Unauthorized" });
 
-  const { seedId } = req.query;
+    const { seedId } = req.query;
 
-  const txs = await SeedTransaction.find({ seed: seedId })
-    .populate("seed")
-    .sort({ createdAt: -1 });
+    const txs = await SeedTransaction.find({ seed: seedId })
+      .populate("seed")
+      .sort({ createdAt: -1 });
 
-  res.json(txs);
+    res.json(txs);
+  } catch (err) {
+    console.error("TRANSACTIONS ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 }

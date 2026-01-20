@@ -9,22 +9,30 @@ export default async function handler(req, res) {
   if (req.method !== "POST")
     return res.status(405).json({ message: "Method not allowed" });
 
-  await dbConnect();
+  try {
+    await dbConnect();
 
-  const user = auth(req);
-  if (!user || !allow(user, ROLES))
-    return res.status(401).json({ message: "Unauthorized" });
+    const user = auth(req);
+    if (!user || !allow(user, ROLES))
+      return res.status(401).json({ message: "Unauthorized" });
 
-  const { seedId, quantity, block, lot, source } = req.body;
+    const { seedId, quantity, block, lot, source } = req.body;
 
-  const tx = await SeedTransaction.create({
-    seed: seedId,
-    type: "replace",
-    quantity,
-    block,
-    lot,
-    metadata: { source },
-  });
+    if (!seedId || !quantity || !block || !lot)
+      return res.status(400).json({ message: "Missing fields" });
 
-  res.status(201).json(tx);
+    const tx = await SeedTransaction.create({
+      seed: seedId,
+      type: "replace",
+      quantity,
+      block,
+      lot,
+      metadata: { source },
+    });
+
+    res.status(201).json(tx);
+  } catch (err) {
+    console.error("REPLACE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 }
