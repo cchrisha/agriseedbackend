@@ -6,6 +6,14 @@ const SeedTransactionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Seed",
       required: true,
+      index: true,
+    },
+
+    tag: {
+      type: String,
+      required: true,
+      unique: true, // IMPORTANT: no duplicate tags
+      index: true,
     },
 
     type: {
@@ -35,15 +43,10 @@ const SeedTransactionSchema = new mongoose.Schema(
     },
 
     metadata: {
-      cause: String,     // mortality
-      purpose: String,   // distribute
-      source: String,    // replace
+      cause: String,
+      purpose: String,
+      source: String,
       remarks: String,
-    },
-
-    date: {
-      type: Date,
-      default: Date.now,
     },
   },
   { timestamps: true }
