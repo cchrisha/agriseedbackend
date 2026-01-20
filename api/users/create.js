@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
+    // 🔐 ADMIN ONLY
     const user = auth(req);
     if (!user || !allow(user, "admin")) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -30,7 +31,7 @@ export default async function handler(req, res) {
 
     const hash = await bcrypt.hash(password, 10);
 
-    const allowedRoles = ["rnd", "op", "admin"];
+    const allowedRoles = ["admin", "rnd", "op-h", "op-non"];
 
     await User.create({
       name,
