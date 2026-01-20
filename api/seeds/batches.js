@@ -10,33 +10,22 @@ export default async function handler(req, res) {
     await dbConnect();
 
     const { seedId } = req.query;
+
     if (!seedId) {
       return res.status(400).json({ message: "seedId is required" });
     }
 
-    const transactions = await SeedTransaction.find({ seed: seedId })
-      .populate("seed", "name")
-      .sort({ createdAt: 1 });
+    const batches = await SeedTransaction.find({
+      seed: seedId,
+      type: "add",
+    })
+      .select("tag quantity block lot createdAt")
+      .sort({ createdAt: 1 }); // oldest → newest
 
-    const expanded = [];
-
-    for (const tx of transactions) {
-      for (let i = 1; i <= tx.quantity; i++) {
-        expanded.push({
-          _id: `${tx._id}-${i}`,
-          name: tx.seed?.name || "",
-          tag: `${tx.tag}-${i}`,
-          block: tx.block,
-          lot: tx.lot,
-          createdAt: tx.createdAt,
-        });
-      }
-    }
-
-    res.json(expanded);
+    return res.status(200).json(batches);
 
   } catch (err) {
-    console.error("BATCHES ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("BATCH LIST ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 }
