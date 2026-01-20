@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    // 1️⃣ CREATE FIRST (NO TAG YET)
+    // 1️⃣ CREATE SEED FIRST
     const seed = await Seed.create({
       name,
       variant,
@@ -24,14 +24,14 @@ export default async function handler(req, res) {
       address,
     });
 
-    // 2️⃣ GENERATE TAG USING PRIMARY KEY
-    const tag = generateSeedTag({
+    // 2️⃣ GENERATE TAG (IMPORTANT: await)
+    const tag = await generateSeedTag({
       name,
       datePlanted,
       primaryKey: seed._id.toString(),
     });
 
-    // 3️⃣ UPDATE SEED WITH TAG
+    // 3️⃣ SAVE TAG
     seed.tag = tag;
     await seed.save();
 
