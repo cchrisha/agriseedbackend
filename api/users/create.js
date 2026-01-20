@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
     const hash = await bcrypt.hash(password, 10);
 
-    const allowedRoles = ["rnd", "op"];
+    const allowedRoles = ["rnd", "op", "admin"];
 
     await User.create({
       name,
