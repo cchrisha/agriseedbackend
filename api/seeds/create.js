@@ -1,6 +1,5 @@
 import dbConnect from "../../lib/db.js";
 import Seed from "../../models/Seed.js";
-import { generateSeedTag } from "../../lib/generateSeedTag.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST")
@@ -15,16 +14,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    // 1️⃣ Generate tag FIRST
-    const tag = await generateSeedTag({ name, datePlanted });
-
     // 2️⃣ Save seed WITH tag
     const seed = await Seed.create({
       name,
       variant,
       datePlanted,
       address,
-      tag,
     });
 
     return res.status(201).json(seed);
