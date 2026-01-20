@@ -16,5 +16,5 @@ export default async function handler(req, res) {
   }
 
   const users = await User.find().select("-password");
-  return res.status(200).json(users);
+  res.json(users);
 }

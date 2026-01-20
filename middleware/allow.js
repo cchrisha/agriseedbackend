@@ -1,6 +1,13 @@
-export function allow(user, role) {
-  if (!user || user.role !== role) {
-    return false;
+export function allow(user, roles) {
+  if (!user) return false;
+
+  if (typeof roles === "string") {
+    return user.role === roles;
   }
-  return true;
+
+  if (Array.isArray(roles)) {
+    return roles.includes(user.role);
+  }
+
+  return false;
 }

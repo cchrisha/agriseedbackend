@@ -10,12 +10,13 @@ export default async function handler(req, res) {
   }
 
   try {
-  await dbConnect();
+    await dbConnect();
 
-  const user = auth(req);
-  if (!user || !allow(user, "admin")) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+    const user = auth(req);
+    if (!user || !allow(user, "admin")) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { name, email, password, role } = req.body;
 
     if (!name || !email || !password) {
@@ -29,11 +30,13 @@ export default async function handler(req, res) {
 
     const hash = await bcrypt.hash(password, 10);
 
+    const allowedRoles = ["rnd", "op"];
+
     await User.create({
       name,
       email,
       password: hash,
-      role: role || "user",
+      role: allowedRoles.includes(role) ? role : "rnd",
     });
 
     return res.status(201).json({
