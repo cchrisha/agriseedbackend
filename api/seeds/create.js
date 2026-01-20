@@ -16,28 +16,29 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    const tag = await generateSeedTag({
-      name,
-      datePlanted,
-      address,
-    });
-
+    // 1️⃣ CREATE FIRST (NO TAG YET)
     const seed = await Seed.create({
       name,
       variant,
       datePlanted,
       address,
-      tag,
     });
 
-    res.status(201).json(seed);
+    // 2️⃣ GENERATE TAG USING PRIMARY KEY
+    const tag = generateSeedTag({
+      name,
+      datePlanted,
+      primaryKey: seed._id.toString(),
+    });
+
+    // 3️⃣ UPDATE SEED WITH TAG
+    seed.tag = tag;
+    await seed.save();
+
+    return res.status(201).json(seed);
+
   } catch (err) {
     console.error("CREATE SEED ERROR:", err);
-
-    if (err.code === 11000) {
-      return res.status(400).json({ message: "Duplicate seed tag" });
-    }
-
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 }
