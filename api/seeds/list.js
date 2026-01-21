@@ -1,5 +1,5 @@
-import dbConnect from "../../lib/db.js";
-import SeedTransaction from "../../models/SeedTransaction.js";
+import dbConnect from "../../../lib/db.js";
+import SeedTransaction from "../../../models/SeedTransaction.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -16,6 +16,8 @@ export default async function handler(req, res) {
     const result = [];
 
     transactions.forEach(tx => {
+      if (!tx.seed) return; // 🔑 prevents Vercel crash
+
       for (let i = 1; i <= tx.quantity; i++) {
         result.push({
           id: `${tx._id}-${i}`,
@@ -35,6 +37,9 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error("GET SEEDS ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({
+      message: "Server error",
+      error: err.message,
+    });
   }
 }

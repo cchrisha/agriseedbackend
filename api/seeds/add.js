@@ -1,7 +1,7 @@
-import dbConnect from "../../lib/db.js";
-import Seed from "../../models/Seed.js";
-import SeedTransaction from "../../models/SeedTransaction.js";
-import { generateSeedTag } from "../../lib/generateSeedTag.js";
+import dbConnect from "../../../lib/db.js";
+import Seed from "../../../models/Seed.js";
+import SeedTransaction from "../../../models/SeedTransaction.js";
+import { generateSeedTag } from "../../../lib/generateSeedTag.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
