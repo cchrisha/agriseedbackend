@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 const SeedTransactionSchema = new mongoose.Schema(
   {
     seed: {
@@ -10,7 +12,8 @@ const SeedTransactionSchema = new mongoose.Schema(
     tag: {
       type: String,
       required: true,
-      index: true, // ❌ not unique
+      unique: true,
+      index: true,
     },
 
     type: {
@@ -41,3 +44,6 @@ const SeedTransactionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+export default mongoose.models.SeedTransaction ||
+  mongoose.model("SeedTransaction", SeedTransactionSchema);

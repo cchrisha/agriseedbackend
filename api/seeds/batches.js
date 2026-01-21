@@ -1,5 +1,5 @@
-import dbConnect from "../../../lib/db.js";
-import SeedTransaction from "../../../models/SeedTransaction.js";
+import dbConnect from "../../lib/db.js";
+import SeedTransaction from "../../models/SeedTransaction.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       type: "add",
     })
       .select("tag quantity block lot createdAt")
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: 1 }); // oldest → newest
 
     return res.status(200).json(batches);
 

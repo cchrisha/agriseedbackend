@@ -1,10 +1,9 @@
-import dbConnect from "../../../lib/db.js";
-import Seed from "../../../models/Seed.js";
+import dbConnect from "../../lib/db.js";
+import Seed from "../../models/Seed.js";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
+  if (req.method !== "POST")
     return res.status(405).json({ message: "Method not allowed" });
-  }
 
   try {
     await dbConnect();
@@ -15,6 +14,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
+    // 2️⃣ Save seed WITH tag
     const seed = await Seed.create({
       name,
       variant,
