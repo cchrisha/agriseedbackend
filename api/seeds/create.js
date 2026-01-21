@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const { name, variant, datePlanted, address } = req.body;
+    const { name, variety, datePlanted, address } = req.body;
 
     if (!name || !datePlanted || !address) {
       return res.status(400).json({ message: "Missing fields" });
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
     const seed = await Seed.create({
       name,
-      variant,
+      variety,
       datePlanted,
       address,
     });

@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const SeedSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    variant: { type: String },
+    variety: { type: String },
     datePlanted: { type: Date, required: true },
     address: { type: String, required: true },
   },
