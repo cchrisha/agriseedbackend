@@ -14,7 +14,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    // 2️⃣ Save seed WITH tag
     const seed = await Seed.create({
       name,
       variant,
