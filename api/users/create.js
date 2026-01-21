@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    // 🔐 ADMIN ONLY
     const user = auth(req);
     if (!user || !allow(user, "admin")) {
       return res.status(401).json({ message: "Unauthorized" });
