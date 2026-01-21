@@ -1,30 +1,51 @@
+import bcrypt from "bcryptjs";
 import dbConnect from "../../lib/db.js";
-import Seed from "../../models/Seed.js";
+import User from "../../models/User.js";
+import { auth } from "../../middleware/auth.js";
+import { allow } from "../../middleware/allow.js";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
+  }
 
   try {
     await dbConnect();
 
-    const { name, variant, datePlanted, address } = req.body;
+    // 🔐 ADMIN ONLY
+    const user = auth(req);
+    if (!user || !allow(user, "admin")) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    if (!name || !datePlanted || !address) {
+    const { name, email, password, role } = req.body;
+
+    if (!name || !email || !password) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    const seed = await Seed.create({
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+
+    const allowedRoles = ["admin", "rnd", "op-h", "op-non"];
+
+    await User.create({
       name,
-      variant,
-      datePlanted,
-      address,
+      email,
+      password: hash,
+      role: allowedRoles.includes(role) ? role : "rnd",
     });
 
-    return res.status(201).json(seed);
+    return res.status(201).json({
+      message: `User ${name} created successfully`,
+    });
 
   } catch (err) {
-    console.error("CREATE SEED ERROR:", err);
+    console.error("CREATE USER ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 }
