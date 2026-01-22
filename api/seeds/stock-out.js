@@ -4,7 +4,7 @@ import SeedStock from "../../models/SeedStock.js";
 
 // 🔹 Auto batch based on month
 function generateBatch() {
-  const month = new Date().getMonth() + 1; // 1–12
+  const month = new Date().getMonth() + 1;
   return `B${String(month).padStart(2, "0")}`;
 }
 
@@ -16,9 +16,9 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const { name, block, lot, quantity } = req.body;
+    const { name, quantity } = req.body;
 
-    if (!name || !block || !lot || !quantity) {
+    if (!name || !quantity) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
@@ -32,6 +32,9 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "Seed not found" });
     }
 
+    // 🔒 SYSTEM DEFAULTS
+    const block = "DEFAULT";
+    const lot = "DEFAULT";
     const batch = generateBatch();
 
     const stock = await SeedStock.findOne({
