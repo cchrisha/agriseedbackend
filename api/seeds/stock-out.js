@@ -4,7 +4,7 @@ import SeedStock from "../../models/SeedStock.js";
 
 // 🔹 Auto batch based on month
 function generateBatch() {
-  const month = new Date().getMonth() + 1;
+  const month = new Date().getMonth() + 1; // 1–12
   return `B${String(month).padStart(2, "0")}`;
 }
 
@@ -27,36 +27,58 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Invalid quantity" });
     }
 
+    // 🔍 Find seed
     const seed = await Seed.findOne({ name });
     if (!seed) {
       return res.status(404).json({ message: "Seed not found" });
     }
 
-    // 🔒 SYSTEM DEFAULTS
-    const block = "DEFAULT";
-    const lot = "DEFAULT";
     const batch = generateBatch();
 
-    const stock = await SeedStock.findOne({
+    // 🔍 Get ALL stocks for this seed & batch (ignore block & lot)
+    const stocks = await SeedStock.find({
       seed: seed._id,
-      block,
-      lot,
       batch,
-    });
+    }).sort({ createdAt: 1 }); // FIFO
 
-    if (!stock || stock.quantity < qty) {
+    if (!stocks.length) {
       return res.status(400).json({
-        message: "Insufficient stock",
+        message: "No stock available",
       });
     }
 
-    stock.quantity -= qty;
-    await stock.save();
+    // 🔢 Compute total available quantity
+    const totalQty = stocks.reduce(
+      (sum, s) => sum + s.quantity,
+      0
+    );
+
+    if (totalQty < qty) {
+      return res.status(400).json({
+        message: "Insufficient stock",
+        available: totalQty,
+      });
+    }
+
+    // 🔻 Deduct quantity (FIFO)
+    let remaining = qty;
+
+    for (const stock of stocks) {
+      if (remaining <= 0) break;
+
+      const deduct = Math.min(stock.quantity, remaining);
+      stock.quantity -= deduct;
+      remaining -= deduct;
+
+      await stock.save();
+    }
 
     return res.status(200).json({
       message: "Distributed successfully",
+      seed: seed.name,
       batch,
-      stock,
+      distributed: qty,
+      remaining: totalQty - qty,
     });
   } catch (err) {
     console.error("DISTRIBUTE ERROR:", err);
