@@ -9,36 +9,53 @@ function generateBatch() {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
+  }
 
   try {
     await dbConnect();
 
     const { name, quantity, reason } = req.body;
-    if (!name || !quantity)
+    if (!name || !quantity) {
       return res.status(400).json({ message: "Missing fields" });
-
-    const seed = await Seed.findOne({ name });
-    if (!seed)
-      return res.status(404).json({ message: "Seed not found" });
+    }
 
     const qty = Number(quantity);
+    if (qty <= 0) {
+      return res.status(400).json({ message: "Invalid quantity" });
+    }
+
+    const seed = await Seed.findOne({ name });
+    if (!seed) {
+      return res.status(404).json({ message: "Seed not found" });
+    }
+
     const batch = generateBatch();
 
-    const stocks = await SeedStock.find({ seed: seed._id, batch });
+    const stocks = await SeedStock.find({
+      seed: seed._id,
+      batch,
+      quantity: { $gt: 0 },
+    }).sort({ createdAt: 1 });
 
-    const total = stocks.reduce((s, x) => s + x.quantity, 0);
-    if (total < qty)
-      return res.status(400).json({ message: "Insufficient stock" });
+    const total = stocks.reduce((sum, s) => sum + s.quantity, 0);
+    if (total < qty) {
+      return res.status(400).json({
+        message: "Insufficient stock",
+        available: total,
+      });
+    }
 
     let remaining = qty;
-    for (const s of stocks) {
+
+    for (const stock of stocks) {
       if (remaining <= 0) break;
-      const deduct = Math.min(s.quantity, remaining);
-      s.quantity -= deduct;
+
+      const deduct = Math.min(stock.quantity, remaining);
+      stock.quantity -= deduct;
       remaining -= deduct;
-      await s.save();
+      await stock.save();
     }
 
     await SeedTransaction.create({
@@ -46,10 +63,13 @@ export default async function handler(req, res) {
       type: "MORTALITY",
       quantity: qty,
       batch,
-      note: reason,
+      note: reason || "Mortality",
     });
 
-    res.json({ message: "Mortality recorded" });
+    res.json({
+      message: "Mortality recorded successfully",
+      removed: qty,
+    });
   } catch (err) {
     console.error("MORTALITY ERROR:", err);
     res.status(500).json({ message: "Server error" });
