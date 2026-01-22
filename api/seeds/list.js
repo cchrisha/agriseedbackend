@@ -1,5 +1,6 @@
 import dbConnect from "../../lib/db.js";
 import Seed from "../../models/Seed.js";
+import SeedStock from "../../models/SeedStock.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -9,7 +10,20 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const seeds = await Seed.find().sort({ createdAt: -1 });
+    // 🔗 JOIN Seed + SeedStock
+    const seeds = await Seed.aggregate([
+      {
+        $lookup: {
+          from: "seedstocks", // collection name (pluralized)
+          localField: "_id",
+          foreignField: "seed",
+          as: "stocks",
+        },
+      },
+      {
+        $sort: { createdAt: -1 },
+      },
+    ]);
 
     return res.json(seeds);
   } catch (err) {
