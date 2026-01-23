@@ -1,6 +1,6 @@
-import dbConnect from "../../../lib/db.js";
-import Seed from "../../../models/Seed.js";
-import SeedStock from "../../../models/SeedStock.js";
+import dbConnect from "../db.js";
+import Seed from "../models/Seed.js";
+import SeedStock from "../models/SeedStock.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
