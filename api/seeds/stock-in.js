@@ -21,19 +21,32 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    const seed = await Seed.findOne({ name });
-    if (!seed) {
-      return res.status(404).json({ message: "Seed not found" });
-    }
-
     const qty = Number(quantity);
     if (qty <= 0) {
       return res.status(400).json({ message: "Invalid quantity" });
     }
 
+    const seed = await Seed.findOne({ name });
+    if (!seed) {
+      return res.status(404).json({ message: "Seed not found" });
+    }
+
+    // ❌ BLOCK + LOT LOCK
+    const existing = await SeedStock.findOne({
+      seed: seed._id,
+      block,
+      lot,
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        message: "This block and lot already contains this seed",
+      });
+    }
+
     const batch = generateBatch();
 
-    // 🔍 HANAPIN ANG HULING SERIAL NUMBER
+    // 🔢 SERIAL CONTINUITY
     const lastStock = await SeedStock.findOne({
       seed: seed._id,
     }).sort({ endNo: -1 });
@@ -41,7 +54,6 @@ export default async function handler(req, res) {
     const startNo = lastStock ? lastStock.endNo + 1 : 1;
     const endNo = startNo + qty - 1;
 
-    // 🆕 CREATE STOCK ENTRY
     const stock = await SeedStock.create({
       seed: seed._id,
       block,
@@ -52,7 +64,6 @@ export default async function handler(req, res) {
       endNo,
     });
 
-    // 🧾 LOG TRANSACTION
     await SeedTransaction.create({
       seed: seed._id,
       type: "STOCK_IN",
@@ -62,12 +73,12 @@ export default async function handler(req, res) {
       endNo,
     });
 
-    return res.status(201).json({
+    res.status(201).json({
       message: "Seed stock added successfully",
       stock,
     });
   } catch (err) {
     console.error("STOCK IN ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 }

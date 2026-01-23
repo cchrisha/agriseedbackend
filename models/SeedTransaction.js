@@ -10,16 +10,17 @@ const SeedTransactionSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["STOCK_IN", "STOCK_OUT"],
+      enum: ["STOCK_IN", "STOCK-OUT", "MORTALITY", "REPLACE"],
       required: true,
     },
 
     quantity: { type: Number, required: true },
     batch: { type: String },
 
-    // 🔢 SERIAL RANGE LOG
     startNo: Number,
     endNo: Number,
+
+    note: String,
   },
   { timestamps: true }
 );

@@ -14,16 +14,15 @@ const SeedStockSchema = new mongoose.Schema(
 
     quantity: { type: Number, required: true },
 
-    // ✅ SERIAL RANGE (DITO NAGSISIMULA ANG BILANG)
+    // SERIAL RANGE
     startNo: { type: Number, required: true },
     endNo: { type: Number, required: true },
   },
   { timestamps: true }
 );
-SeedStockSchema.index(
-  { seed: 1, block: 1, lot: 1, batch: 1 },
-  { unique: true }
-);
+
+// ❗ ENFORCE 1 SEED PER BLOCK+LOT
+SeedStockSchema.index({ seed: 1, block: 1, lot: 1 }, { unique: true });
 
 export default mongoose.models.SeedStock ||
   mongoose.model("SeedStock", SeedStockSchema);
