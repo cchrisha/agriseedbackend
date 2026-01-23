@@ -1,6 +1,7 @@
-import dbConnect from "../../../lib/db.js";
-import Seed from "../../../models/Seed.js";
-import SeedStock from "../../../models/SeedStock.js";
+import dbConnect from "../../lib/db.js";
+import Seed from "../../models/Seed.js";
+import SeedStock from "../../models/SeedStock.js";
+import mongoose from "mongoose";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -10,27 +11,32 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const { name } = req.query;
-    if (!name) {
-      return res.status(400).json({ message: "Seed name required" });
+    const { seedId } = req.query;
+
+    // ✅ validate seedId
+    if (!seedId) {
+      return res.status(400).json({ message: "seedId is required" });
     }
 
-    const seed = await Seed.findOne({
-      name: { $regex: `^${name}$`, $options: "i" },
-    });
+    if (!mongoose.Types.ObjectId.isValid(seedId)) {
+      return res.status(400).json({ message: "Invalid seedId" });
+    }
 
-    if (!seed) {
+    // (optional) check if seed exists
+    const seedExists = await Seed.exists({ _id: seedId });
+    if (!seedExists) {
       return res.status(404).json({ message: "Seed not found" });
     }
 
+    // ✅ fetch available stock locations
     const stocks = await SeedStock.find({
-      seed: seed._id,
+      seed: seedId,
       quantity: { $gt: 0 },
-    }).select("block lot quantity");
+    }).select("block lot quantity -_id");
 
     return res.status(200).json(stocks);
   } catch (err) {
-    console.error("FETCH LOCATIONS ERROR:", err);
-    return res.status(500).json({ message: err.message });
+    console.error("FETCH AVAILABLE LOCATIONS ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 }
