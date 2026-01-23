@@ -9,49 +9,41 @@ function generateBatch() {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
+  if (req.method !== "POST")
     return res.status(405).json({ message: "Method not allowed" });
-  }
 
   try {
     await dbConnect();
 
     const { name, block, lot, quantity } = req.body;
-    if (!name || !block || !lot || !quantity) {
+    if (!name || !block || !lot || !quantity)
       return res.status(400).json({ message: "Missing fields" });
-    }
 
     const qty = Number(quantity);
-    if (qty <= 0) {
+    if (qty <= 0)
       return res.status(400).json({ message: "Invalid quantity" });
-    }
 
     const seed = await Seed.findOne({ name });
-    if (!seed) {
+    if (!seed)
       return res.status(404).json({ message: "Seed not found" });
-    }
 
-    // ❌ BLOCK + LOT LOCK
-    const existing = await SeedStock.findOne({
+    // ❌ DO NOT ALLOW DUPLICATE BLOCK+LOT
+    const exists = await SeedStock.findOne({
       seed: seed._id,
       block,
       lot,
     });
 
-    if (existing) {
+    if (exists)
       return res.status(400).json({
         message: "This block and lot already contains this seed",
       });
-    }
 
     const batch = generateBatch();
 
-    // 🔢 SERIAL CONTINUITY
-    const lastStock = await SeedStock.findOne({
-      seed: seed._id,
-    }).sort({ endNo: -1 });
-
-    const startNo = lastStock ? lastStock.endNo + 1 : 1;
+    // SERIAL CONTINUITY
+    const last = await SeedStock.findOne({ seed: seed._id }).sort({ endNo: -1 });
+    const startNo = last ? last.endNo + 1 : 1;
     const endNo = startNo + qty - 1;
 
     const stock = await SeedStock.create({
@@ -73,10 +65,7 @@ export default async function handler(req, res) {
       endNo,
     });
 
-    res.status(201).json({
-      message: "Seed stock added successfully",
-      stock,
-    });
+    res.status(201).json({ message: "Stock added", stock });
   } catch (err) {
     console.error("STOCK IN ERROR:", err);
     res.status(500).json({ message: "Server error" });
