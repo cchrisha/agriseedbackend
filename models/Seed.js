@@ -20,6 +20,12 @@ const SeedSchema = new mongoose.Schema(
 
     datePlanted: { type: Date, required: true },
     address: { type: String, required: true },
+        // ✅ ADD THIS
+    tag: {
+      type: String,
+      required: true,
+      unique: true,
+    },
   },
   { timestamps: true }
 );
