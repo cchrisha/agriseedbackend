@@ -1,6 +1,6 @@
-import dbConnect from "../../lib/db.js";
-import Seed from "../../models/Seed.js";
-import SeedStock from "../../models/SeedStock.js";
+import dbConnect from "../../../lib/db.js";
+import Seed from "../../../models/Seed.js";
+import SeedStock from "../../../models/SeedStock.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -25,9 +25,9 @@ export default async function handler(req, res) {
       quantity: { $gt: 0 },
     }).select("block lot quantity");
 
-    res.json(stocks);
+    return res.json(stocks);
   } catch (err) {
     console.error("FETCH LOCATIONS ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 }
