@@ -21,7 +21,6 @@ export default async function handler(req, res) {
 
     res.json(seeds);
   } catch (err) {
-    console.error("FETCH SEEDS ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 }
