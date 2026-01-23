@@ -33,26 +33,15 @@ export default async function handler(req, res) {
     // ===============================
     // 🏷️ GENERATE SEED TAG
     // ===============================
-    const seedCode = name.substring(0, 3).toUpperCase(); // TAM
+    const seedCode = name.substring(0, 3).toUpperCase();
     const d = new Date(datePlanted);
 
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
 
-    // Start & end of month
-    const startOfMonth = new Date(year, d.getMonth(), 1);
-    const endOfMonth = new Date(year, d.getMonth() + 1, 0, 23, 59, 59);
-
-    // Count seeds this month (for batch)
-    const batchCount = await Seed.countDocuments({
-      datePlanted: {
-        $gte: startOfMonth,
-        $lte: endOfMonth,
-      },
-    });
-
-    const batchNo = `BO${batchCount + 1}`;
+    // ✅ FIXED BATCH BASED ON MONTH
+    const batchNo = `B${month}`; // Jan = B01, Feb = B02
 
     const tag = `PRB-${seedCode}-${year}-${month}-${day}-${batchNo}`;
 
@@ -66,7 +55,7 @@ export default async function handler(req, res) {
       lot,
       datePlanted,
       address,
-      tag, // 👈 SAVE TAG
+      tag,
     });
 
     res.status(201).json(seed);
