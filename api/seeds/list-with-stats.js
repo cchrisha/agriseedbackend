@@ -44,25 +44,25 @@ export default async function handler(req, res) {
             },
           },
 
-          // mortality: {
-          //   $size: {
-          //     $filter: {
-          //       input: "$stocks",
-          //       as: "s",
-          //       cond: { $eq: ["$$s.status", "MORTALITY"] },
-          //     },
-          //   },
-          // },
+          mortality: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "MORTALITY"] },
+              },
+            },
+          },
 
-          // replaced: {
-          //   $size: {
-          //     $filter: {
-          //       input: "$stocks",
-          //       as: "s",
-          //       cond: { $eq: ["$$s.status", "REPLACED"] },
-          //     },
-          //   },
-          // },
+          replaced: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "REPLACED"] },
+              },
+            },
+          },
         },
       },
       {
