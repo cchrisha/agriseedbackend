@@ -30,14 +30,8 @@ const SeedSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/**
- * 🚫 WALANG DUPLICATE BLOCK + LOT
- */
 SeedSchema.index({ block: 1, lot: 1 }, { unique: true });
 
-/**
- * 🚫 WALANG DUPLICATE SEED (name + datePlanted)
- */
 SeedSchema.index({ name: 1, datePlanted: 1 }, { unique: true });
 
 export default mongoose.models.Seed ||
