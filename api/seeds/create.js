@@ -9,15 +9,32 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const { name, variant, datePlanted, address } = req.body;
+    const {
+      name,
+      variant,
+      block,
+      lot,
+      datePlanted,
+      address,
+    } = req.body;
 
-    if (!name || !datePlanted || !address) {
+    if (!name || !block || !lot || !datePlanted || !address) {
       return res.status(400).json({ message: "Missing fields" });
+    }
+
+    // 🔍 Check kung occupied na ang block + lot
+    const occupied = await Seed.findOne({ block, lot });
+    if (occupied) {
+      return res
+        .status(400)
+        .json({ message: "Block and lot already occupied" });
     }
 
     const seed = await Seed.create({
       name,
       variant,
+      block,
+      lot,
       datePlanted,
       address,
     });
@@ -27,7 +44,9 @@ export default async function handler(req, res) {
     console.error("CREATE SEED ERROR:", err);
 
     if (err.code === 11000) {
-      return res.status(400).json({ message: "Duplicate seed tag" });
+      return res.status(400).json({
+        message: "Duplicate seed or block/lot already used",
+      });
     }
 
     res.status(500).json({ message: "Server error" });
