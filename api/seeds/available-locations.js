@@ -15,7 +15,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Seed name required" });
     }
 
-    const seed = await Seed.findOne({ name });
+    // ✅ CASE-INSENSITIVE MATCH
+    const seed = await Seed.findOne({
+      name: { $regex: `^${name}$`, $options: "i" },
+    });
+
     if (!seed) {
       return res.status(404).json({ message: "Seed not found" });
     }
