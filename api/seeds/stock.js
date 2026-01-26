@@ -88,35 +88,64 @@ export default async function handler(req, res) {
       });
     }
 
-    if (["REPLACED"].includes(action)) {
-      const availableStocks = await SeedStock.find({
-        seed: seedId,
-        status: "STOCK-IN",
-      })
-        .sort({ stockNo: 1 })
-        .limit(quantity);
+// =========================
+// REPLACED (remove + add new)
+// =========================
+if (action === "REPLACED") {
+  const availableStocks = await SeedStock.find({
+    seed: seedId,
+    status: "STOCK-IN",
+  })
+    .sort({ stockNo: 1 })
+    .limit(quantity);
 
-      if (availableStocks.length < quantity) {
-        return res.status(400).json({
-          message: "Not enough available stock",
-          available: availableStocks.length,
-        });
-      }
+  if (availableStocks.length < quantity) {
+    return res.status(400).json({
+      message: "Not enough available stock",
+      available: availableStocks.length,
+    });
+  }
 
-      const stockIds = availableStocks.map((s) => s._id);
+  // MARK OLD AS REPLACED
+  const stockIds = availableStocks.map((s) => s._id);
 
-      await SeedStock.updateMany(
-        { _id: { $in: stockIds } },
-        { $set: { status: action } }
-      );
+  await SeedStock.updateMany(
+    { _id: { $in: stockIds } },
+    { $set: { status: "REPLACED" } }
+  );
 
-      return res.status(200).json({
-        message: `${action} successful`,
-        from: availableStocks[0].stockNo,
-        to: availableStocks[availableStocks.length + 1].stockNo,
-        quantity,
-      });
-    }
+  // GET LAST STOCK NUMBER
+  const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
+    stockNo: -1,
+  });
+
+  const startNo = lastStock.stockNo + 1;
+  const endNo = startNo + quantity - 1;
+
+  // CREATE NEW STOCK-IN (replacement)
+  const newStocks = [];
+
+  for (let i = startNo; i <= endNo; i++) {
+    newStocks.push({
+      seed: seedId,
+      stockNo: i,
+      tag: `${seed.tag}-${i}`,
+      status: "STOCK-IN",
+    });
+  }
+
+  await SeedStock.insertMany(newStocks);
+
+  return res.status(200).json({
+    message: "Replacement successful",
+    replacedFrom: availableStocks[0].stockNo,
+    replacedTo: availableStocks[availableStocks.length - 1].stockNo,
+    newFrom: startNo,
+    newTo: endNo,
+    quantity,
+  });
+}
+
 
     return res.status(400).json({ message: "Invalid action" });
   } catch (err) {
