@@ -21,20 +21,24 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "Seed not found" });
     }
 
-    // 🔍 Get AVAILABLE stocks (FIFO)
-    const availableStocks = await SeedStock.find({
-      seed: seedId,
-      status: "STOCK-IN",
-    })
-      .sort({ stockNo: 1 })
-      .limit(quantity);
+const availableStocks = await SeedStock.find({
+  seed: seedId,
+  status: "STOCK-IN",
+})
+.sort({ stockNo: 1 })
+.limit(Number(quantity));
 
-    if (availableStocks.length < quantity) {
-      return res.status(400).json({
-        message: "Not enough available stock",
-        available: availableStocks.length,
-      });
-    }
+if (!availableStocks.length) {
+  return res.status(400).json({ message: "No STOCK-IN available" });
+}
+
+if (availableStocks.length < quantity) {
+  return res.status(400).json({
+    message: "Not enough available stock",
+    available: availableStocks.length,
+  });
+}
+
 
     const stockIds = availableStocks.map(s => s._id);
 
