@@ -1,4 +1,5 @@
 import dbConnect from "../../lib/db.js";
+import Seed from "../../models/Seed.js";
 import SeedStock from "../../models/SeedStock.js";
 
 export default async function handler(req, res) {
@@ -9,12 +10,35 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const { stockIds } = req.body; // array ng stock _id
+    const { seedId, quantity } = req.body;
 
-    if (!stockIds || stockIds.length === 0) {
-      return res.status(400).json({ message: "No stocks provided" });
+    if (!seedId || !quantity || quantity <= 0) {
+      return res.status(400).json({ message: "Invalid input" });
     }
 
+    const seed = await Seed.findById(seedId);
+    if (!seed) {
+      return res.status(404).json({ message: "Seed not found" });
+    }
+
+    // 🔍 Get AVAILABLE stocks (FIFO)
+    const availableStocks = await SeedStock.find({
+      seed: seedId,
+      status: "STOCK-IN",
+    })
+      .sort({ stockNo: 1 })
+      .limit(quantity);
+
+    if (availableStocks.length < quantity) {
+      return res.status(400).json({
+        message: "Not enough available stock",
+        available: availableStocks.length,
+      });
+    }
+
+    const stockIds = availableStocks.map(s => s._id);
+
+    // 🔄 Update status to STOCK-OUT
     await SeedStock.updateMany(
       { _id: { $in: stockIds } },
       {
@@ -26,7 +50,9 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       message: "Stocks marked as mortality",
-      count: stockIds.length,
+      from: availableStocks[0].stockNo,
+      to: availableStocks[availableStocks.length - 1].stockNo,
+      quantity,
     });
   } catch (err) {
     console.error("MORTALITY ERROR:", err);

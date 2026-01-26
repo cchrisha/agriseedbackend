@@ -1,4 +1,5 @@
 import dbConnect from "../../lib/db.js";
+import Seed from "../../models/Seed.js";
 import SeedStock from "../../models/SeedStock.js";
 
 export default async function handler(req, res) {
@@ -15,7 +16,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Invalid input" });
     }
 
-    // Get AVAILABLE stocks
+    const seed = await Seed.findById(seedId);
+    if (!seed) {
+      return res.status(404).json({ message: "Seed not found" });
+    }
+
+    // 🔍 Get AVAILABLE stocks (FIFO)
     const availableStocks = await SeedStock.find({
       seed: seedId,
       status: "STOCK-IN",
@@ -25,14 +31,16 @@ export default async function handler(req, res) {
 
     if (availableStocks.length < quantity) {
       return res.status(400).json({
-        message: "Not enough stocks for replacement",
+        message: "Not enough available stock",
+        available: availableStocks.length,
       });
     }
 
-    const ids = availableStocks.map(s => s._id);
+    const stockIds = availableStocks.map(s => s._id);
 
+    // 🔄 Update status to STOCK-OUT
     await SeedStock.updateMany(
-      { _id: { $in: ids } },
+      { _id: { $in: stockIds } },
       {
         $set: {
           status: "REPLACED",
@@ -41,7 +49,7 @@ export default async function handler(req, res) {
     );
 
     res.status(200).json({
-      message: "Replacement successful",
+      message: "Replaced stocks successfully",
       from: availableStocks[0].stockNo,
       to: availableStocks[availableStocks.length - 1].stockNo,
       quantity,
