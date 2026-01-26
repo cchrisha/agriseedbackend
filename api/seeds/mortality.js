@@ -21,24 +21,20 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: "Seed not found" });
     }
 
-const availableStocks = await SeedStock.find({
-  seed: seedId,
-  status: "STOCK-IN",
-})
-.sort({ stockNo: 1 })
-.limit(Number(quantity));
+    // 🔍 Get AVAILABLE stocks (FIFO)
+    const availableStocks = await SeedStock.find({
+      seed: seedId,
+      status: "STOCK-IN",
+    })
+      .sort({ stockNo: 1 })
+      .limit(quantity);
 
-if (!availableStocks.length) {
-  return res.status(400).json({ message: "No STOCK-IN available" });
-}
-
-if (availableStocks.length < quantity) {
-  return res.status(400).json({
-    message: "Not enough available stock",
-    available: availableStocks.length,
-  });
-}
-
+    if (availableStocks.length < quantity) {
+      return res.status(400).json({
+        message: "Not enough available stock",
+        available: availableStocks.length,
+      });
+    }
 
     const stockIds = availableStocks.map(s => s._id);
 
@@ -47,19 +43,19 @@ if (availableStocks.length < quantity) {
       { _id: { $in: stockIds } },
       {
         $set: {
-          status: "MORTALITY",
+          status: "STOCK-OUT",
         },
       }
     );
 
     res.status(200).json({
-      message: "Stocks marked as mortality",
+      message: "Stock distributed successfully",
       from: availableStocks[0].stockNo,
       to: availableStocks[availableStocks.length - 1].stockNo,
       quantity,
     });
   } catch (err) {
-    console.error("MORTALITY ERROR:", err);
+    console.error("STOCK-OUT ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 }
