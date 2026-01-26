@@ -56,9 +56,9 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // STOCK-OUT / MORTALITY / REPLACED
+    // STOCK-OUT / MORTALITY 
     // =========================
-    if (["STOCK-OUT", "MORTALITY", "REPLACED"].includes(action)) {
+    if (["STOCK-OUT", "MORTALITY",].includes(action)) {
       const availableStocks = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
@@ -84,6 +84,36 @@ export default async function handler(req, res) {
         message: `${action} successful`,
         from: availableStocks[0].stockNo,
         to: availableStocks[availableStocks.length - 1].stockNo,
+        quantity,
+      });
+    }
+
+    if (["REPLACED"].includes(action)) {
+      const availableStocks = await SeedStock.find({
+        seed: seedId,
+        status: "STOCK-IN",
+      })
+        .sort({ stockNo: 1 })
+        .limit(quantity);
+
+      if (availableStocks.length < quantity) {
+        return res.status(400).json({
+          message: "Not enough available stock",
+          available: availableStocks.length,
+        });
+      }
+
+      const stockIds = availableStocks.map((s) => s._id);
+
+      await SeedStock.updateMany(
+        { _id: { $in: stockIds } },
+        { $set: { status: action } }
+      );
+
+      return res.status(200).json({
+        message: `${action} successful`,
+        from: availableStocks[0].stockNo,
+        to: availableStocks[availableStocks.length + 1].stockNo,
         quantity,
       });
     }
