@@ -88,41 +88,48 @@ export default async function handler(req, res) {
       });
     }
 
-// =========================
-// REPLACED (remove + add new)
+    // =========================
+// REPLACED (mortality -> replaced + add new)
 // =========================
 if (action === "REPLACED") {
-  const availableStocks = await SeedStock.find({
+  // ONLY FROM MORTALITY
+  const mortalityStocks = await SeedStock.find({
     seed: seedId,
-    status: "STOCK-IN",
+    status: "MORTALITY",
   })
     .sort({ stockNo: 1 })
     .limit(quantity);
 
-  if (availableStocks.length < quantity) {
+  if (!mortalityStocks.length) {
     return res.status(400).json({
-      message: "Not enough available stock",
-      available: availableStocks.length,
+      message: "No mortality to replace",
     });
   }
 
-  // MARK OLD AS REPLACED
-  const stockIds = availableStocks.map((s) => s._id);
+  if (mortalityStocks.length < quantity) {
+    return res.status(400).json({
+      message: "Replacement exceeds mortality count",
+      mortality: mortalityStocks.length,
+    });
+  }
+
+  // MARK AS REPLACED (history)
+  const stockIds = mortalityStocks.map((s) => s._id);
 
   await SeedStock.updateMany(
     { _id: { $in: stockIds } },
     { $set: { status: "REPLACED" } }
   );
 
-  // GET LAST STOCK NUMBER
+  // FIND LAST STOCK NUMBER (safe)
   const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
     stockNo: -1,
   });
 
-  const startNo = lastStock.stockNo + 1;
+  const startNo = lastStock ? lastStock.stockNo + 1 : 1;
   const endNo = startNo + quantity - 1;
 
-  // CREATE NEW STOCK-IN (replacement)
+  // ADD NEW AVAILABLE STOCK
   const newStocks = [];
 
   for (let i = startNo; i <= endNo; i++) {
@@ -138,11 +145,8 @@ if (action === "REPLACED") {
 
   return res.status(200).json({
     message: "Replacement successful",
-    replacedFrom: availableStocks[0].stockNo,
-    replacedTo: availableStocks[availableStocks.length - 1].stockNo,
-    newFrom: startNo,
-    newTo: endNo,
-    quantity,
+    replaced: quantity,
+    addedToAvailable: quantity,
   });
 }
 
