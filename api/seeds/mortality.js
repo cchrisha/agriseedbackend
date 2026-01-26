@@ -17,8 +17,11 @@ export default async function handler(req, res) {
     }
 
     const seed = await Seed.findById(seedId);
-    if (!seed) return res.status(404).json({ message: "Seed not found" });
+    if (!seed) {
+      return res.status(404).json({ message: "Seed not found" });
+    }
 
+    // 🔍 Get AVAILABLE stocks (FIFO)
     const availableStocks = await SeedStock.find({
       seed: seedId,
       status: "STOCK-IN",
@@ -35,6 +38,7 @@ export default async function handler(req, res) {
 
     const stockIds = availableStocks.map(s => s._id);
 
+    // 🔄 Update status to STOCK-OUT
     await SeedStock.updateMany(
       { _id: { $in: stockIds } },
       {
@@ -45,13 +49,13 @@ export default async function handler(req, res) {
     );
 
     res.status(200).json({
-      message: "Mortality recorded",
+      message: "Stock distributed successfully",
       from: availableStocks[0].stockNo,
       to: availableStocks[availableStocks.length - 1].stockNo,
       quantity,
     });
   } catch (err) {
-    console.error("MORTALITY ERROR:", err);
+    console.error("STOCK-OUT ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 }
