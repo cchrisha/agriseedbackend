@@ -10,18 +10,24 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const { seedId, quantity, action } = req.body;
+    // FORCE TYPES
+    const seedId = req.body.seedId;
+    const quantity = Number(req.body.quantity);
+    const action = req.body.action;
 
+    // VALIDATION
     if (!seedId || !quantity || quantity <= 0 || !action) {
       return res.status(400).json({ message: "Invalid input" });
     }
 
     const seed = await Seed.findById(seedId);
-    if (!seed) return res.status(404).json({ message: "Seed not found" });
+    if (!seed) {
+      return res.status(404).json({ message: "Seed not found" });
+    }
 
-    // =========================
+    // =================================
     // STOCK-IN
-    // =========================
+    // =================================
     if (action === "STOCK-IN") {
       const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
         stockNo: -1,
@@ -37,6 +43,7 @@ export default async function handler(req, res) {
           seed: seedId,
           stockNo: i,
           tag: `${seed.tag}-${i}`,
+          status: "STOCK-IN", // IMPORTANT
         });
       }
 
@@ -46,12 +53,13 @@ export default async function handler(req, res) {
         message: "Stock added successfully",
         from: startNo,
         to: endNo,
+        quantity,
       });
     }
 
-    // =========================
+    // =================================
     // STOCK-OUT / MORTALITY / REPLACED
-    // =========================
+    // =================================
     if (["STOCK-OUT", "MORTALITY", "REPLACED"].includes(action)) {
       const availableStocks = await SeedStock.find({
         seed: seedId,
@@ -67,7 +75,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const stockIds = availableStocks.map(s => s._id);
+      const stockIds = availableStocks.map((s) => s._id);
 
       await SeedStock.updateMany(
         { _id: { $in: stockIds } },
@@ -88,7 +96,9 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ message: "Invalid action" });
   } catch (err) {
-    console.error("STOCK ACTION ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("STOCK ACTION ERROR:");
+    console.error(err);
+
+    return res.status(500).json({ message: "Server error" });
   }
 }
