@@ -93,7 +93,7 @@ if (action === "INSERT-IN") {
     if (["STOCK-OUT", "MORTALITY",].includes(action)) {
       const availableStocks = await SeedStock.find({
         seed: seedId,
-        status: "STOCK-IN",
+        status: "INSERT-IN",
       })
         .sort({ stockNo: 1 })
         .limit(quantity);
@@ -120,67 +120,52 @@ if (action === "INSERT-IN") {
       });
     }
 
-    // =========================
-    // REPLACED 
-    // =========================
     if (action === "REPLACED") {
-      // ONLY FROM MORTALITY
-      const mortalityStocks = await SeedStock.find({
-        seed: seedId,
-        status: "STOCK-IN",
-      })
-        .sort({ stockNo: 1 })
-        .limit(quantity);
+  const mortalityStocks = await SeedStock.find({
+    seed: seedId,
+    status: "STOCK-IN",
+  })
+    .sort({ stockNo: 1 })
+    .limit(quantity);
 
-      if (!mortalityStocks.length) {
-        return res.status(400).json({
-          message: "No mortality to replace",
-        });
-      }
+  if (mortalityStocks.length < quantity) {
+    return res.status(400).json({
+      message: "Not enough stocks to replace",
+      mortality: mortalityStocks.length,
+    });
+  }
 
-      if (mortalityStocks.length < quantity) {
-        return res.status(400).json({
-          message: "Replacement exceeds mortality count",
-          mortality: mortalityStocks.length,
-        });
-      }
+  const stockIds = mortalityStocks.map((s) => s._id);
 
-      // MARK AS REPLACED (history)
-      const stockIds = mortalityStocks.map((s) => s._id);
+  await SeedStock.updateMany(
+    { _id: { $in: stockIds } },
+    { $set: { status: "REPLACED" } }
+  );
 
-      await SeedStock.updateMany(
-        { _id: { $in: stockIds } },
-        { $set: { status: "REPLACED" } }
-      );
+  const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
+    stockNo: -1,
+  });
 
-      // FIND LAST STOCK NUMBER (safe)
-      const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
-        stockNo: -1,
-      });
+  const startNo = lastStock ? lastStock.stockNo + 1 : 1;
+  const endNo = startNo + quantity - 1;
 
-      const startNo = lastStock ? lastStock.stockNo + 1 : 1;
-      const endNo = startNo + quantity - 1;
+  const newStocks = [];
 
-      // ADD NEW AVAILABLE STOCK
-      const newStocks = [];
+  for (let i = startNo; i <= endNo; i++) {
+    newStocks.push({
+      seed: seedId,
+      stockNo: i,
+      tag: `${seed.tag}-${i}`,
+      status: "INSERT-IN",
+    });
+  }
 
-      for (let i = startNo; i <= endNo; i++) {
-        newStocks.push({
-          seed: seedId,
-          stockNo: i,
-          tag: `${seed.tag}-${i}`,
-          status: "STOCK-IN",
-        });
-      }
+  await SeedStock.insertMany(newStocks);
 
-      await SeedStock.insertMany(newStocks);
-
-      return res.status(200).json({
-        message: "Replacement successful",
-        replaced: quantity,
-        addedToAvailable: quantity,
-      });
-    }
+  return res.status(200).json({
+    message: "Replacement successful",
+  });
+}
 
     return res.status(400).json({ message: "Invalid action" });
   } catch (err) {
