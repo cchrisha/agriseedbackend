@@ -71,6 +71,16 @@ export default async function handler(req, res) {
               },
             },
           },
+
+          stocks: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "INSERT-IN"] },
+              },
+            },
+          },
         },
       },
       {
