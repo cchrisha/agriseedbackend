@@ -55,6 +55,36 @@ export default async function handler(req, res) {
       });
     }
 
+    //INSERT STOCK
+        if (action === "INSERT-IN") {
+      const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
+        stockNo: -1,
+      });
+
+      const startNo = lastStock ? lastStock.stockNo + 1 : 1;
+      const endNo = startNo + quantity - 1;
+
+      const stocks = [];
+
+      for (let i = startNo; i <= endNo; i++) {
+        stocks.push({
+          seed: seedId,
+          stockNo: i,
+          tag: `${seed.tag}-${i}`,
+          status: "INSERT-IN",
+        });
+      }
+
+      await SeedStock.insertMany(stocks);
+
+      return res.status(201).json({
+        message: "Inserted stocks successfully",
+        from: startNo,
+        to: endNo,
+        quantity,
+      });
+    }
+
     // =========================
     // STOCK-OUT / MORTALITY 
     // =========================
@@ -95,7 +125,7 @@ export default async function handler(req, res) {
       // ONLY FROM MORTALITY
       const mortalityStocks = await SeedStock.find({
         seed: seedId,
-        status: "MORTALITY",
+        status: "STOCK-IN",
       })
         .sort({ stockNo: 1 })
         .limit(quantity);
