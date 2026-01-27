@@ -11,6 +11,14 @@ export default async function handler(req, res) {
 
     const seeds = await Seed.aggregate([
       {
+        $match: {
+          $or: [
+            { isDeleted: false },
+            { isDeleted: { $exists: false } }
+          ]
+        }
+      },
+      {
         // 🔗 Join SeedStock
         $lookup: {
           from: "seedstocks",
@@ -66,17 +74,12 @@ export default async function handler(req, res) {
         },
       },
       {
-        // 🧹 Optional: alisin ang raw stocks array (lighter payload)
-        $project: {
-          stocks: 0,
-        },
-      },
-      {
         $sort: { createdAt: -1 },
       },
     ]);
 
     res.json(seeds);
+
   } catch (err) {
     console.error("FETCH ERROR:", err);
     res.status(500).json({ message: "Server error" });
