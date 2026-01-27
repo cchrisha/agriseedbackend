@@ -60,7 +60,7 @@ export default async function handler(req, res) {
         .limit(quantity);
 
       if (stocks.length < quantity)
-        return res.status(400).json({ message: "Not enough STOCK-IN" });
+        return res.status(400).json({ message: "Not enough seedlings" });
 
       await SeedStock.updateMany(
         { _id: { $in: stocks.map((s) => s._id) } },
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
         .limit(quantity);
 
       if (stocks.length < quantity)
-        return res.status(400).json({ message: "Not enough INSERT-IN" });
+        return res.status(400).json({ message: "Not enough seedlings" });
 
       await SeedStock.updateMany(
         { _id: { $in: stocks.map((s) => s._id) } },
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
         .limit(quantity);
 
       if (stocks.length < quantity)
-        return res.status(400).json({ message: "Not enough STOCK-IN for replacement" });
+        return res.status(400).json({ message: "Not enough seedlings for replacement" });
 
       await SeedStock.updateMany(
         { _id: { $in: stocks.map((s) => s._id) } },
