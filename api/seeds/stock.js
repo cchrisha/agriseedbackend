@@ -18,9 +18,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Invalid input" });
     }
 
-    const seed = await Seed.findById(seedId);
+    // 🔐 ONLY CHANGE — block deleted seeds
+    const seed = await Seed.findOne({
+      _id: seedId,
+      isDeleted: false
+    });
+
     if (!seed) {
-      return res.status(404).json({ message: "Seed not found" });
+      return res.status(404).json({ message: "Seed not found or deleted" });
     }
 
     // =========================
@@ -58,7 +63,7 @@ export default async function handler(req, res) {
     // =========================
     // STOCK-OUT / MORTALITY 
     // =========================
-    if (["STOCK-OUT", "MORTALITY",].includes(action)) {
+    if (["STOCK-OUT", "MORTALITY"].includes(action)) {
       const availableStocks = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
@@ -89,67 +94,62 @@ export default async function handler(req, res) {
     }
 
     // =========================
-// REPLACED (mortality -> replaced + add new)
-// =========================
-if (action === "REPLACED") {
-  // ONLY FROM MORTALITY
-  const mortalityStocks = await SeedStock.find({
-    seed: seedId,
-    status: "MORTALITY",
-  })
-    .sort({ stockNo: 1 })
-    .limit(quantity);
+    // REPLACED
+    // =========================
+    if (action === "REPLACED") {
+      const mortalityStocks = await SeedStock.find({
+        seed: seedId,
+        status: "MORTALITY",
+      })
+        .sort({ stockNo: 1 })
+        .limit(quantity);
 
-  if (!mortalityStocks.length) {
-    return res.status(400).json({
-      message: "No mortality to replace",
-    });
-  }
+      if (!mortalityStocks.length) {
+        return res.status(400).json({
+          message: "No mortality to replace",
+        });
+      }
 
-  if (mortalityStocks.length < quantity) {
-    return res.status(400).json({
-      message: "Replacement exceeds mortality count",
-      mortality: mortalityStocks.length,
-    });
-  }
+      if (mortalityStocks.length < quantity) {
+        return res.status(400).json({
+          message: "Replacement exceeds mortality count",
+          mortality: mortalityStocks.length,
+        });
+      }
 
-  // MARK AS REPLACED (history)
-  const stockIds = mortalityStocks.map((s) => s._id);
+      const stockIds = mortalityStocks.map((s) => s._id);
 
-  await SeedStock.updateMany(
-    { _id: { $in: stockIds } },
-    { $set: { status: "REPLACED" } }
-  );
+      await SeedStock.updateMany(
+        { _id: { $in: stockIds } },
+        { $set: { status: "REPLACED" } }
+      );
 
-  // FIND LAST STOCK NUMBER (safe)
-  const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
-    stockNo: -1,
-  });
+      const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
+        stockNo: -1,
+      });
 
-  const startNo = lastStock ? lastStock.stockNo + 1 : 1;
-  const endNo = startNo + quantity - 1;
+      const startNo = lastStock ? lastStock.stockNo + 1 : 1;
+      const endNo = startNo + quantity - 1;
 
-  // ADD NEW AVAILABLE STOCK
-  const newStocks = [];
+      const newStocks = [];
 
-  for (let i = startNo; i <= endNo; i++) {
-    newStocks.push({
-      seed: seedId,
-      stockNo: i,
-      tag: `${seed.tag}-${i}`,
-      status: "STOCK-IN",
-    });
-  }
+      for (let i = startNo; i <= endNo; i++) {
+        newStocks.push({
+          seed: seedId,
+          stockNo: i,
+          tag: `${seed.tag}-${i}`,
+          status: "STOCK-IN",
+        });
+      }
 
-  await SeedStock.insertMany(newStocks);
+      await SeedStock.insertMany(newStocks);
 
-  return res.status(200).json({
-    message: "Replacement successful",
-    replaced: quantity,
-    addedToAvailable: quantity,
-  });
-}
-
+      return res.status(200).json({
+        message: "Replacement successful",
+        replaced: quantity,
+        addedToAvailable: quantity,
+      });
+    }
 
     return res.status(400).json({ message: "Invalid action" });
   } catch (err) {
