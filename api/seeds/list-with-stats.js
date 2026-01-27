@@ -30,9 +30,9 @@ export default async function handler(req, res) {
       {
         // 📊 Compute counts by status
         $addFields: {
-          totalStock: { $size: "$stocks" },
+          total: { $size: "$stocks" },
 
-          available: {
+          stocks: {
             $size: {
               $filter: {
                 input: "$stocks",
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
             },
           },
 
-inserted: {
+available: {
   $size: {
     $filter: {
       input: "$stocks",
