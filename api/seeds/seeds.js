@@ -13,21 +13,31 @@ export default async function handler(req, res) {
       {
         $or: [
           { isDeleted: false },
-          { isDeleted: { $exists: false } } // para sa old seeds
-        ]
+          { isDeleted: { $exists: false } },
+        ],
       },
       {
         name: 1,
         block: 1,
         lot: 1,
         tag: 1,
+        createdAt: 1,
       }
     ).sort({ createdAt: -1 });
 
-    res.json(seeds);
+    // occupied block + lot
+    const occupied = seeds.map((s) => ({
+      block: s.block,
+      lot: s.lot,
+    }));
+
+    return res.json({
+      seeds,
+      occupied,
+    });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("FETCH ERROR:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 }
