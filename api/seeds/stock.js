@@ -95,7 +95,7 @@ export default async function handler(req, res) {
       // ONLY FROM MORTALITY
       const mortalityStocks = await SeedStock.find({
         seed: seedId,
-        status: "SEEDSTOCKS",
+        status: "MORTALITY",
       })
         .sort({ stockNo: 1 })
         .limit(quantity);
