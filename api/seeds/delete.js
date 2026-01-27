@@ -2,20 +2,34 @@ import dbConnect from "../../lib/db.js";
 import Seed from "../../models/Seed.js";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method not allowed" });
+  }
 
-  await dbConnect();
+  try {
+    await dbConnect();
 
-  const { seedId } = req.body;
+    const { seedId } = req.body;
 
-  const seed = await Seed.findById(seedId);
+    if (!seedId) {
+      return res.status(400).json({ message: "Missing seedId" });
+    }
 
-  if (!seed) return res.status(404).json({ message: "Seed not found" });
+    const seed = await Seed.findById(seedId);
 
-  seed.isDeleted = true;
-  seed.deletedAt = new Date();
+    if (!seed) {
+      return res.status(404).json({ message: "Seed not found" });
+    }
 
-  await seed.save();
+    seed.isDeleted = true;
+    seed.deletedAt = new Date();
 
-  res.json({ message: "Seed soft deleted" });
+    await seed.save();
+
+    res.json({ message: "Seed soft deleted" });
+
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 }
