@@ -56,67 +56,37 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // REPLACED 
-    // =========================
-    if (action === "INSERT-IN") {
-      // ONLY FROM MORTALITY
-      const mortalityStocks = await SeedStock.find({
-        seed: seedId,
-        status: "STOCK-IN",
-      })
-        .sort({ stockNo: 1 })
-        .limit(quantity);
+// INSERT-IN (FROM STOCK-IN)
+// =========================
+if (action === "INSERT-IN") {
+  const availableStocks = await SeedStock.find({
+    seed: seedId,
+    status: "STOCK-IN",
+  })
+    .sort({ stockNo: 1 })
+    .limit(quantity);
 
-      if (!mortalityStocks.length) {
-        return res.status(400).json({
-          message: "No mortality to replace",
-        });
-      }
+  if (availableStocks.length < quantity) {
+    return res.status(400).json({
+      message: "Not enough available stock for insert",
+      available: availableStocks.length,
+    });
+  }
 
-      if (mortalityStocks.length < quantity) {
-        return res.status(400).json({
-          message: "Replacement exceeds mortality count",
-          mortality: mortalityStocks.length,
-        });
-      }
+  const stockIds = availableStocks.map((s) => s._id);
 
-      // MARK AS REPLACED (history)
-      const stockIds = mortalityStocks.map((s) => s._id);
+  await SeedStock.updateMany(
+    { _id: { $in: stockIds } },
+    { $set: { status: "INSERT-IN" } }
+  );
 
-      await SeedStock.updateMany(
-        { _id: { $in: stockIds } },
-        { $set: { status: "REPLACED" } }
-      );
-
-      // FIND LAST STOCK NUMBER (safe)
-      const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
-        stockNo: -1,
-      });
-
-      const startNo = lastStock ? lastStock.stockNo + 1 : 1;
-      const endNo = startNo + quantity - 1;
-
-      // ADD NEW AVAILABLE STOCK
-      const newStocks = [];
-
-      for (let i = startNo; i <= endNo; i++) {
-        newStocks.push({
-          seed: seedId,
-          stockNo: i,
-          tag: `${seed.tag}-${i}`,
-          status: "STOCK-IN",
-        });
-      }
-
-      await SeedStock.insertMany(newStocks);
-
-      return res.status(200).json({
-        message: "Replacement successful",
-        replaced: quantity,
-        addedToAvailable: quantity,
-      });
-    }
-
+  return res.status(200).json({
+    message: "Insert-in successful",
+    from: availableStocks[0].stockNo,
+    to: availableStocks[availableStocks.length - 1].stockNo,
+    quantity,
+  });
+}
     // =========================
     // STOCK-OUT / MORTALITY 
     // =========================
