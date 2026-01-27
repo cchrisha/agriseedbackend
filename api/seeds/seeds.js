@@ -10,7 +10,12 @@ export default async function handler(req, res) {
     await dbConnect();
 
     const seeds = await Seed.find(
-      {},
+      {
+        $or: [
+          { isDeleted: false },
+          { isDeleted: { $exists: false } } // para sa old seeds
+        ]
+      },
       {
         name: 1,
         block: 1,
@@ -20,7 +25,9 @@ export default async function handler(req, res) {
     ).sort({ createdAt: -1 });
 
     res.json(seeds);
+
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 }
