@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     await dbConnect();
 
     const seeds = await Seed.find(
-      // { isDeleted: false },
+      {},
       {
         name: 1,
         block: 1,

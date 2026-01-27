@@ -4,10 +4,7 @@ import Seed from "../../models/Seed.js";
 export default async function handler(req, res) {
   await dbConnect();
 
-  const seeds = await Seed.find(
-    { isDeleted: false },
-    { block: 1, lot: 1 }
-  );
+  const seeds = await Seed.find({}, { block: 1, lot: 1 });
 
   const occupied = seeds.map(s => ({
     block: s.block,

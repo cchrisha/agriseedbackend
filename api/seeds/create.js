@@ -22,18 +22,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
-    const occupied = await Seed.findOne({
-      block,
-      lot,
-      isDeleted:false
-    });
-
+    // 🔍 Check kung occupied na ang block + lot
+    const occupied = await Seed.findOne({ block, lot });
     if (occupied) {
       return res
         .status(400)
         .json({ message: "Block and lot already occupied" });
     }
 
+    // ===============================
+    // 🏷️ GENERATE SEED TAG
+    // ===============================
     const seedCode = name.substring(0, 3).toUpperCase();
     const d = new Date(datePlanted);
 
@@ -41,10 +40,14 @@ export default async function handler(req, res) {
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
 
-    const batchNo = `B${month}`;
+    // ✅ FIXED BATCH BASED ON MONTH
+    const batchNo = `B${month}`; // Jan = B01, Feb = B02
 
     const tag = `PRB-${seedCode}-${year}-${month}-${day}-${batchNo}`;
 
+    // ===============================
+    // 🌱 CREATE SEED
+    // ===============================
     const seed = await Seed.create({
       name,
       variant,

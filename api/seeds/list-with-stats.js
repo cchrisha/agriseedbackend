@@ -10,9 +10,8 @@ export default async function handler(req, res) {
     await dbConnect();
 
     const seeds = await Seed.aggregate([
-      { $match:{ isDeleted:false }},
-
       {
+        // 🔗 Join SeedStock
         $lookup: {
           from: "seedstocks",
           localField: "_id",
@@ -20,8 +19,8 @@ export default async function handler(req, res) {
           as: "stocks",
         },
       },
-
       {
+        // 📊 Compute counts by status
         $addFields: {
           totalStock: { $size: "$stocks" },
 
@@ -66,9 +65,15 @@ export default async function handler(req, res) {
           },
         },
       },
-
-      { $project: { stocks: 0 } },
-      { $sort: { createdAt: -1 } },
+      {
+        // 🧹 Optional: alisin ang raw stocks array (lighter payload)
+        $project: {
+          stocks: 0,
+        },
+      },
+      {
+        $sort: { createdAt: -1 },
+      },
     ]);
 
     res.json(seeds);

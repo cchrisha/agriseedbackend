@@ -18,14 +18,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Invalid input" });
     }
 
-    // 🔐 ONLY CHANGE — block deleted seeds
-    const seed = await Seed.findOne({
-      _id: seedId,
-      isDeleted: false
-    });
-
+    const seed = await Seed.findById(seedId);
     if (!seed) {
-      return res.status(404).json({ message: "Seed not found or deleted" });
+      return res.status(404).json({ message: "Seed not found" });
     }
 
     // =========================
@@ -63,7 +58,7 @@ export default async function handler(req, res) {
     // =========================
     // STOCK-OUT / MORTALITY 
     // =========================
-    if (["STOCK-OUT", "MORTALITY"].includes(action)) {
+    if (["STOCK-OUT", "MORTALITY",].includes(action)) {
       const availableStocks = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
@@ -94,12 +89,13 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // REPLACED
+    // REPLACED 
     // =========================
     if (action === "REPLACED") {
+      // ONLY FROM MORTALITY
       const mortalityStocks = await SeedStock.find({
         seed: seedId,
-        status: "MORTALITY",
+        status: "SEEDSTOCKS",
       })
         .sort({ stockNo: 1 })
         .limit(quantity);
@@ -117,6 +113,7 @@ export default async function handler(req, res) {
         });
       }
 
+      // MARK AS REPLACED (history)
       const stockIds = mortalityStocks.map((s) => s._id);
 
       await SeedStock.updateMany(
@@ -124,6 +121,7 @@ export default async function handler(req, res) {
         { $set: { status: "REPLACED" } }
       );
 
+      // FIND LAST STOCK NUMBER (safe)
       const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
         stockNo: -1,
       });
@@ -131,6 +129,7 @@ export default async function handler(req, res) {
       const startNo = lastStock ? lastStock.stockNo + 1 : 1;
       const endNo = startNo + quantity - 1;
 
+      // ADD NEW AVAILABLE STOCK
       const newStocks = [];
 
       for (let i = startNo; i <= endNo; i++) {
