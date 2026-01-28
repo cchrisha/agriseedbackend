@@ -43,15 +43,15 @@ export default async function handler(req, res) {
         isDeleted: false,
       });
 
-      // ✅ CREATED LOG
-      await ActivityLog.create({
-        user: req.user?.name || "System",
-        seed: seed._id,
-        seedName: seed.name,
-        seedTag: seed.tag,
-        quantity: 0,
-        process: "CREATED",
-      });
+    //   // ✅ CREATED LOG
+    //   await ActivityLog.create({
+    //     user: req.user?.name || "System",
+    //     seed: seed._id,
+    //     seedName: seed.name,
+    //     seedTag: seed.tag,
+    //     quantity: 0,
+    //     process: "CREATED",
+    //   });
 
       return res.status(201).json(seed);
     }
@@ -71,14 +71,14 @@ export default async function handler(req, res) {
       await seed.save();
 
       // ✅ DELETED LOG
-      await ActivityLog.create({
-        user: req.user?.name || "System",
-        seed: seed._id,
-        seedName: seed.name,
-        seedTag: seed.tag,
-        quantity: 0,
-        process: "DELETED",
-      });
+    //   await ActivityLog.create({
+    //     user: req.user?.name || "System",
+    //     seed: seed._id,
+    //     seedName: seed.name,
+    //     seedTag: seed.tag,
+    //     quantity: 0,
+    //     process: "DELETED",
+    //   });
 
       return res.json({ message: "Seed soft deleted" });
     }
