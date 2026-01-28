@@ -24,11 +24,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: "Missing fields" });
       }
 
-      const occupied = await Seed.findOne({ block, lot, isDeleted: false });
-      if (occupied) {
-        return res.status(400).json({ message: "Block and lot already occupied" });
-      }
-
       const seedCode = name.substring(0, 3).toUpperCase();
       const d = new Date(datePlanted);
 
@@ -54,7 +49,7 @@ export default async function handler(req, res) {
     }
 
     // ===============================
-    // 🗑️ SOFT DELETE SEED
+    // 🗑️ SOFT DELETE
     // ===============================
     if (req.method === "DELETE") {
 
@@ -81,11 +76,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: "Method not allowed" });
 
   } catch (err) {
+
     console.error("SEED API ERROR:", err);
 
+    // Mongo duplicate (block + lot)
     if (err.code === 11000) {
       return res.status(400).json({
-        message: "Duplicate seed or block/lot already used",
+        message: "This lot is already occupied",
       });
     }
 

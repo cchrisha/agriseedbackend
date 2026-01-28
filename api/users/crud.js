@@ -1,103 +1,137 @@
-import bcrypt from "bcryptjs";
 import dbConnect from "../../lib/db.js";
-import User from "../../models/User.js";
-import { auth } from "../../middleware/auth.js";
-import { allow } from "../../middleware/allow.js";
+import Seed from "../../models/Seed.js";
+import SeedStock from "../../models/SeedStock.js";
 
 export default async function handler(req, res) {
+
+  // Always connect first
   await dbConnect();
 
-  const user = auth(req);
-  if (!user || !allow(user, "admin")) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
 
-    // ================= CREATE USER =================
-    if (req.method === "POST") {
-      const { name, email, password, role } = req.body;
+    const seedId = req.body.seedId;
+    const quantity = Number(req.body.quantity);
+    const action = req.body.action;
 
-      if (!name || !email || !password) {
-        return res.status(400).json({ message: "Missing fields" });
-      }
+    if (!seedId || !quantity || quantity <= 0 || !action) {
+      return res.status(400).json({ message: "Invalid input" });
+    }
 
-      const exists = await User.findOne({ email });
-      if (exists) {
-        return res.status(400).json({ message: "Email already exists" });
-      }
+    const seed = await Seed.findById(seedId);
+    if (!seed) {
+      return res.status(404).json({ message: "Seed not found" });
+    }
 
-      const hash = await bcrypt.hash(password, 10);
+    // =========================
+    // STOCK-IN (CREATE NEW)
+    // =========================
+    if (action === "STOCK-IN") {
 
-      const allowedRoles = ["admin", "rnd", "op-h", "op-non"];
-
-      await User.create({
-        name,
-        email,
-        password: hash,
-        role: allowedRoles.includes(role) ? role : "rnd",
+      const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
+        stockNo: -1,
       });
 
-      return res.status(201).json({
-        message: `User ${name} created successfully`,
-      });
+      const startNo = lastStock ? lastStock.stockNo + 1 : 1;
+      const endNo = startNo + quantity - 1;
+
+      const stocks = [];
+
+      for (let i = startNo; i <= endNo; i++) {
+        stocks.push({
+          seed: seedId,
+          stockNo: i,
+          tag: `${seed.tag}-${i}`,
+          status: "STOCK-IN",
+        });
+      }
+
+      await SeedStock.insertMany(stocks);
+
+      return res.json({ message: "Stock-in successful" });
     }
 
-    // ================= LIST USERS =================
-    if (req.method === "GET") {
-      const users = await User.find().select("-password");
-      return res.json(users);
+    // =========================
+    // INSERT-IN (FROM STOCK-IN)
+    // =========================
+    if (action === "INSERT-IN") {
+
+      const stocks = await SeedStock.find({
+        seed: seedId,
+        status: "STOCK-IN",
+      })
+        .sort({ stockNo: 1 })
+        .limit(quantity);
+
+      if (stocks.length < quantity) {
+        return res.status(400).json({ message: "Not enough seedlings" });
+      }
+
+      await SeedStock.updateMany(
+        { _id: { $in: stocks.map((s) => s._id) } },
+        { $set: { status: "INSERT-IN" } }
+      );
+
+      return res.json({ message: "Insert-in successful" });
     }
 
-    // ================= UPDATE USER =================
-    if (req.method === "PUT") {
-      const { userId, name, email, role, newPassword } = req.body;
+    // =========================
+    // STOCK-OUT / MORTALITY (FROM INSERT-IN)
+    // =========================
+    if (["STOCK-OUT", "MORTALITY"].includes(action)) {
 
-      if (!userId) {
-        return res.status(400).json({ message: "User ID required" });
+      const stocks = await SeedStock.find({
+        seed: seedId,
+        status: "INSERT-IN",
+      })
+        .sort({ stockNo: 1 })
+        .limit(quantity);
+
+      if (stocks.length < quantity) {
+        return res.status(400).json({ message: "Not enough seedlings" });
       }
 
-      const targetUser = await User.findById(userId);
-      if (!targetUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      await SeedStock.updateMany(
+        { _id: { $in: stocks.map((s) => s._id) } },
+        { $set: { status: action } }
+      );
 
-      if (email && email !== targetUser.email) {
-        const exists = await User.findOne({ email });
-        if (exists) {
-          return res.status(400).json({ message: "Email already in use" });
-        }
-      }
-
-      if (name !== undefined) targetUser.name = name;
-      if (email !== undefined) targetUser.email = email;
-
-      const allowedRoles = ["admin", "op", "rnd"];
-      if (role && allowedRoles.includes(role)) {
-        targetUser.role = role;
-      }
-
-      if (newPassword) {
-        targetUser.password = await bcrypt.hash(newPassword, 10);
-      }
-
-      await targetUser.save();
-
-      return res.json({ message: "User updated successfully" });
+      return res.json({ message: `${action} successful` });
     }
 
-        // ================= DELETE USER =================
-    if (req.method === "DELETE") {
-      const { userId } = req.body;
-      await User.findByIdAndDelete(userId);
+    // =========================
+    // REPLACED (FROM STOCK-IN ONLY)
+    // =========================
+    if (action === "REPLACED") {
 
-      return res.json({ message: "User deleted successfully" });
+      const stocks = await SeedStock.find({
+        seed: seedId,
+        status: "STOCK-IN",
+      })
+        .sort({ stockNo: 1 })
+        .limit(quantity);
+
+      if (stocks.length < quantity) {
+        return res
+          .status(400)
+          .json({ message: "Not enough seedlings for replacement" });
+      }
+
+      await SeedStock.updateMany(
+        { _id: { $in: stocks.map((s) => s._id) } },
+        { $set: { status: "REPLACED" } }
+      );
+
+      return res.json({ message: "Replacement successful" });
     }
 
-    return res.status(405).json({ message: "Method not allowed" });
+    return res.status(400).json({ message: "Invalid action" });
 
   } catch (err) {
-    console.error("USER API ERROR:", err);
+    console.error(err);
     return res.status(500).json({ message: "Server error" });
   }
 }
