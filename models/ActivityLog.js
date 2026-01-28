@@ -2,7 +2,16 @@ import mongoose from "mongoose";
 
 const ActivityLogSchema = new mongoose.Schema(
   {
-    user: { type: String, required: true },
+    user: {
+      type: String,
+      required: true,
+    },
+
+    role: {
+      type: String,
+      enum: ["admin", "rnd", "op-h", "op-non"],
+      required: true,
+    },
 
     seed: {
       type: mongoose.Schema.Types.ObjectId,
