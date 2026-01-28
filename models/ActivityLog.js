@@ -1,0 +1,34 @@
+import mongoose from "mongoose";
+
+const ActivityLogSchema = new mongoose.Schema(
+  {
+    user: { type: String, required: true },
+
+    seed: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Seed",
+    },
+
+    seedName: String,
+    seedTag: String,
+
+    quantity: Number,
+
+    process: {
+      type: String,
+      enum: [
+        "CREATED",
+        "DELETED",
+        "STOCK-IN",
+        "INSERT-IN",
+        "STOCK-OUT",
+        "MORTALITY",
+        "REPLACED",
+      ],
+    },
+  },
+  { timestamps: true }
+);
+
+export default mongoose.models.ActivityLog ||
+  mongoose.model("ActivityLog", ActivityLogSchema);
