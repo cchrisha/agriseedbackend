@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
     const {
       name,
-      variant,
+      variety,
       block,
       lot,
       datePlanted,
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     // ===============================
     const seed = await Seed.create({
       name,
-      variant,
+      variety,
       block,
       lot,
       datePlanted,
