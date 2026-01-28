@@ -3,15 +3,12 @@ import Seed from "../../models/Seed.js";
 import SeedStock from "../../models/SeedStock.js";
 
 export default async function handler(req, res) {
-
-  // Always connect first
-  await dbConnect();
-
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
+    await dbConnect();
 
     const seedId = req.body.seedId;
     const quantity = Number(req.body.quantity);
@@ -22,15 +19,12 @@ export default async function handler(req, res) {
     }
 
     const seed = await Seed.findById(seedId);
-    if (!seed) {
-      return res.status(404).json({ message: "Seed not found" });
-    }
+    if (!seed) return res.status(404).json({ message: "Seed not found" });
 
     // =========================
     // STOCK-IN (CREATE NEW)
     // =========================
     if (action === "STOCK-IN") {
-
       const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
         stockNo: -1,
       });
@@ -58,7 +52,6 @@ export default async function handler(req, res) {
     // INSERT-IN (FROM STOCK-IN)
     // =========================
     if (action === "INSERT-IN") {
-
       const stocks = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
@@ -66,9 +59,8 @@ export default async function handler(req, res) {
         .sort({ stockNo: 1 })
         .limit(quantity);
 
-      if (stocks.length < quantity) {
+      if (stocks.length < quantity)
         return res.status(400).json({ message: "Not enough seedlings" });
-      }
 
       await SeedStock.updateMany(
         { _id: { $in: stocks.map((s) => s._id) } },
@@ -82,7 +74,6 @@ export default async function handler(req, res) {
     // STOCK-OUT / MORTALITY (FROM INSERT-IN)
     // =========================
     if (["STOCK-OUT", "MORTALITY"].includes(action)) {
-
       const stocks = await SeedStock.find({
         seed: seedId,
         status: "INSERT-IN",
@@ -90,9 +81,8 @@ export default async function handler(req, res) {
         .sort({ stockNo: 1 })
         .limit(quantity);
 
-      if (stocks.length < quantity) {
+      if (stocks.length < quantity)
         return res.status(400).json({ message: "Not enough seedlings" });
-      }
 
       await SeedStock.updateMany(
         { _id: { $in: stocks.map((s) => s._id) } },
@@ -106,7 +96,6 @@ export default async function handler(req, res) {
     // REPLACED (FROM STOCK-IN ONLY)
     // =========================
     if (action === "REPLACED") {
-
       const stocks = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
@@ -114,11 +103,8 @@ export default async function handler(req, res) {
         .sort({ stockNo: 1 })
         .limit(quantity);
 
-      if (stocks.length < quantity) {
-        return res
-          .status(400)
-          .json({ message: "Not enough seedlings for replacement" });
-      }
+      if (stocks.length < quantity)
+        return res.status(400).json({ message: "Not enough seedlings for replacement" });
 
       await SeedStock.updateMany(
         { _id: { $in: stocks.map((s) => s._id) } },
