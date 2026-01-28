@@ -10,7 +10,12 @@ export default async function handler(req, res) {
     await dbConnect();
 
     const seeds = await Seed.find(
-      { isDeleted: false },
+      {
+        $or: [
+          { isDeleted: false },
+          { isDeleted: { $exists: false } },
+        ],
+      },
       {
         name: 1,
         block: 1,
@@ -20,22 +25,11 @@ export default async function handler(req, res) {
       }
     ).sort({ createdAt: -1 });
 
-    const occupiedMap = {};
-
-    seeds.forEach((s) => {
-      if (!occupiedMap[s.block]) occupiedMap[s.block] = [];
-
-      if (!occupiedMap[s.block].includes(s.lot)) {
-        occupiedMap[s.block].push(s.lot);
-      }
-    });
-
-    const occupied = Object.entries(occupiedMap).flatMap(([block, lots]) =>
-      lots.map((lot) => ({
-        block: Number(block),
-        lot,
-      }))
-    );
+    // occupied block + lot
+    const occupied = seeds.map((s) => ({
+      block: s.block,
+      lot: s.lot,
+    }));
 
     return res.json({
       seeds,
