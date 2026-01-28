@@ -1,6 +1,6 @@
-import dbConnect from "../../../lib/db.js";
-import User from "../../../models/User.js";
-import { auth } from "../../../middleware/auth.js";
+import dbConnect from "../../lib/db.js";
+import User from "../../models/User.js";
+import { auth } from "../../middleware/auth.js";
 
 export default async function handler(req, res) {
   await dbConnect();
