@@ -4,6 +4,8 @@ import ActivityLog from "../../models/ActivityLog.js";
 
 export default async function handler(req, res) {
   await dbConnect();
+  const role = req.headers.role || "admin";
+  const user = req.headers.user || "System";
 
   try {
 
@@ -43,9 +45,6 @@ export default async function handler(req, res) {
         isDeleted: false,
       });
 
-        const role = req.headers.role || "admin";
-        const user = req.headers.user || "System";
-
         try {
         await ActivityLog.create({
             user,
@@ -64,39 +63,35 @@ export default async function handler(req, res) {
     }
 
     // ===============================
-// 🗑 SOFT DELETE
-// ===============================
-if (req.method === "DELETE") {
+    // 🗑 SOFT DELETE
+    // ===============================
+    if (req.method === "DELETE") {
 
-  const { seedId } = req.body;
+      const { seedId } = req.body;
 
-  const seed = await Seed.findById(seedId);
-  if (!seed) return res.status(404).json({ message: "Seed not found" });
+      const seed = await Seed.findById(seedId);
+      if (!seed) return res.status(404).json({ message: "Seed not found" });
 
-  seed.isDeleted = true;
-  seed.deletedAt = new Date();
-  await seed.save();
+      seed.isDeleted = true;
+      seed.deletedAt = new Date();
+      await seed.save();
 
-  const role = req.headers.role || "admin";
-  const user = req.headers.user || "System";
-
-  try {
+    try {
     await ActivityLog.create({
-      user,
-      role,
-      seed: seed._id,
-      seedName: seed.name,
-      seedTag: seed.tag,
-      quantity: 0,
-      process: "DELETED",
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: 0,
+        process: "DELETED",
     });
-  } catch (e) {
+    } catch (e) {
     console.error("DELETE LOG FAILED", e);
-  }
+    }
 
-  return res.json({ message: "Seed soft deleted" });
-}
-
+      return res.json({ message: "Seed soft deleted" });
+    }
 
     return res.status(405).json({ message: "Method not allowed" });
 
