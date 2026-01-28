@@ -43,15 +43,22 @@ export default async function handler(req, res) {
         isDeleted: false,
       });
 
-    //   // ✅ CREATED LOG
-    //   await ActivityLog.create({
-    //     user: req.user?.name || "System",
-    //     seed: seed._id,
-    //     seedName: seed.name,
-    //     seedTag: seed.tag,
-    //     quantity: 0,
-    //     process: "CREATED",
-    //   });
+        const role = req.headers.role || "admin";
+        const user = req.headers.user || "System";
+
+        try {
+        await ActivityLog.create({
+            user,
+            role,
+            seed: seed._id,
+            seedName: seed.name,
+            seedTag: seed.tag,
+            quantity: 0,
+            process: "CREATED",
+        });
+        } catch (logErr) {
+        console.error("LOG FAILED:", logErr);
+        }
 
       return res.status(201).json(seed);
     }
@@ -70,15 +77,19 @@ export default async function handler(req, res) {
       seed.deletedAt = new Date();
       await seed.save();
 
-      // ✅ DELETED LOG
-    //   await ActivityLog.create({
-    //     user: req.user?.name || "System",
-    //     seed: seed._id,
-    //     seedName: seed.name,
-    //     seedTag: seed.tag,
-    //     quantity: 0,
-    //     process: "DELETED",
-    //   });
+    try {
+    await ActivityLog.create({
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: 0,
+        process: "DELETED",
+    });
+    } catch (e) {
+    console.error("DELETE LOG FAILED", e);
+    }
 
       return res.json({ message: "Seed soft deleted" });
     }

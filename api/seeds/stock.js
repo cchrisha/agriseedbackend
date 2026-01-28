@@ -1,6 +1,7 @@
 import dbConnect from "../../lib/db.js";
 import Seed from "../../models/Seed.js";
 import SeedStock from "../../models/SeedStock.js";
+import ActivityLog from "../../models/ActivityLog.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -14,6 +15,9 @@ export default async function handler(req, res) {
     const quantity = Number(req.body.quantity);
     const action = req.body.action;
 
+    const role = req.headers.role || "admin";
+    const user = req.headers.user || "System";
+
     if (!seedId || !quantity || quantity <= 0 || !action) {
       return res.status(400).json({ message: "Invalid input" });
     }
@@ -21,8 +25,10 @@ export default async function handler(req, res) {
     const seed = await Seed.findById(seedId);
     if (!seed) return res.status(404).json({ message: "Seed not found" });
 
+    let affected = [];
+
     // =========================
-    // STOCK-IN (CREATE NEW)
+    // STOCK-IN
     // =========================
     if (action === "STOCK-IN") {
       const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
@@ -43,78 +49,89 @@ export default async function handler(req, res) {
         });
       }
 
-      await SeedStock.insertMany(stocks);
-
-      return res.json({ message: "Stock-in successful" });
+      affected = await SeedStock.insertMany(stocks);
     }
 
     // =========================
-    // INSERT-IN (FROM STOCK-IN)
+    // INSERT-IN
     // =========================
     if (action === "INSERT-IN") {
-      const stocks = await SeedStock.find({
+      affected = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
       })
         .sort({ stockNo: 1 })
         .limit(quantity);
 
-      if (stocks.length < quantity)
+      if (affected.length < quantity)
         return res.status(400).json({ message: "Not enough seedlings" });
 
       await SeedStock.updateMany(
-        { _id: { $in: stocks.map((s) => s._id) } },
+        { _id: { $in: affected.map((s) => s._id) } },
         { $set: { status: "INSERT-IN" } }
       );
-
-      return res.json({ message: "Insert-in successful" });
     }
 
     // =========================
-    // STOCK-OUT / MORTALITY (FROM INSERT-IN)
+    // STOCK-OUT / MORTALITY
     // =========================
     if (["STOCK-OUT", "MORTALITY"].includes(action)) {
-      const stocks = await SeedStock.find({
+      affected = await SeedStock.find({
         seed: seedId,
         status: "INSERT-IN",
       })
         .sort({ stockNo: 1 })
         .limit(quantity);
 
-      if (stocks.length < quantity)
+      if (affected.length < quantity)
         return res.status(400).json({ message: "Not enough seedlings" });
 
       await SeedStock.updateMany(
-        { _id: { $in: stocks.map((s) => s._id) } },
+        { _id: { $in: affected.map((s) => s._id) } },
         { $set: { status: action } }
       );
-
-      return res.json({ message: `${action} successful` });
     }
 
     // =========================
-    // REPLACED (FROM STOCK-IN ONLY)
+    // REPLACED
     // =========================
     if (action === "REPLACED") {
-      const stocks = await SeedStock.find({
+      affected = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
       })
         .sort({ stockNo: 1 })
         .limit(quantity);
 
-      if (stocks.length < quantity)
-        return res.status(400).json({ message: "Not enough seedlings for replacement" });
+      if (affected.length < quantity)
+        return res
+          .status(400)
+          .json({ message: "Not enough seedlings for replacement" });
 
       await SeedStock.updateMany(
-        { _id: { $in: stocks.map((s) => s._id) } },
+        { _id: { $in: affected.map((s) => s._id) } },
         { $set: { status: "REPLACED" } }
       );
-
-      return res.json({ message: "Replacement successful" });
     }
 
-    return res.status(400).json({ message: "Invalid action" });
+    // =========================
+    // ACTIVITY LOG (SAFE)
+    // =========================
+    try {
+      await ActivityLog.create({
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity,
+        process: action,
+      });
+    } catch (e) {
+      console.error("LOG FAILED", e);
+    }
+
+    return res.json({ message: `${action} successful` });
 
   } catch (err) {
     console.error(err);
