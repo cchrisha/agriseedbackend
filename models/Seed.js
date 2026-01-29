@@ -41,22 +41,22 @@ import mongoose from "mongoose";
 const SeedSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    variant: { type: String },
 
+    variety: { type: String },
+
+    // assigned later
     block: {
       type: Number,
-      required: true,
-      min: 1,
-      max: 12,
+      default: null,
     },
 
     lot: {
       type: Number,
-      required: true,
-      enum: [1, 2],
+      default: null,
     },
 
     datePlanted: { type: Date, required: true },
+
     address: { type: String, required: true },
 
     tag: {
@@ -65,23 +65,15 @@ const SeedSchema = new mongoose.Schema(
       unique: true,
     },
 
-    // =====================
-    // SOFT DELETE
-    // =====================
     isDeleted: {
       type: Boolean,
       default: false,
     },
 
-    deletedAt: {
-      type: Date,
-    },
+    deletedAt: Date,
   },
   { timestamps: true }
 );
-
-SeedSchema.index({ block: 1, lot: 1 }, { unique: true });
-SeedSchema.index({ name: 1, datePlanted: 1 }, { unique: true });
 
 export default mongoose.models.Seed ||
   mongoose.model("Seed", SeedSchema);
