@@ -60,6 +60,63 @@ export default async function handler(req, res) {
 
       await SeedStock.insertMany(stocks);
 
+      return res.status(201).json({ message: "Stock added" });
+    }
+
+    // =========================
+    // INSERT-IN (PLANTING)
+    // =========================
+    if (action === "INSERT-IN") {
+
+      if (!block || !lot)
+        return res.status(400).json({ message: "Block & Lot required" });
+
+      // ❌ bawal occupied
+      const occupied = await SeedStock.findOne({
+        block,
+        lot,
+        status: "INSERT-IN",
+      });
+
+      if (occupied) {
+        return res.status(400).json({
+          message: "Block and Lot already occupied",
+        });
+      }
+
+      affected = await SeedStock.find({
+        seed: seedId,
+        status: "STOCK-IN",
+      })
+        .sort({ stockNo: 1 })
+        .limit(qty);
+
+      if (affected.length < qty)
+        return res.status(400).json({ message: "Not enough nursery stock" });
+
+      await SeedStock.updateMany(
+        { _id: { $in: affected.map(s => s._id) } },
+        {
+          $set: {
+            status: "INSERT-IN",
+            block,
+            lot,
+          },
+        }
+      );
+    }
+
+    // =========================
+    // STOCK-OUT / MORTALITY
+    // =========================
+    // (leave commented)
+
+    // =========================
+    // REPLACED
+    // =========================
+    // (leave commented)
+
+
       // ACTIVITY LOG
       try {
         await ActivityLog.create({
@@ -74,24 +131,6 @@ export default async function handler(req, res) {
       } catch (e) {
         console.error("LOG FAILED", e);
       }
-
-      return res.status(201).json({ message: "Stock added" });
-    }
-
-    // =========================
-    // INSERT-IN (PLANTING → AVAILABLE)
-    // =========================
-    // (leave commented)
-
-    // =========================
-    // STOCK-OUT / MORTALITY
-    // =========================
-    // (leave commented)
-
-    // =========================
-    // REPLACED
-    // =========================
-    // (leave commented)
 
     return res.status(400).json({ message: "Unknown action" });
 
