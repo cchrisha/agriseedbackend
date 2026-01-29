@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       const month = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
 
-      const tag = `PRB-${seedCode}-${year}-${month}-${day}`;
+      const tag = `PRB-${seedCode}-${year}-${month}-${day}-B${month}`;
 
       const seed = await Seed.create({
         name,
