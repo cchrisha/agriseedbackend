@@ -1,6 +1,5 @@
 import dbConnect from "../../lib/db.js";
 import SeedStock from "../../models/SeedStock.js";
-import Seed from "../../models/Seed.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -12,14 +11,6 @@ export default async function handler(req, res) {
 
     const data = await SeedStock.aggregate([
       {
-        // ONLY PLANTED
-        $match: {
-          status: "INSERT-IN",
-        },
-      },
-
-      // JOIN seed info
-      {
         $lookup: {
           from: "seeds",
           localField: "seed",
@@ -30,7 +21,6 @@ export default async function handler(req, res) {
 
       { $unwind: "$seedInfo" },
 
-      // GROUP BY BLOCK + LOT + SEED
       {
         $group: {
           _id: {
@@ -42,11 +32,40 @@ export default async function handler(req, res) {
           name: { $first: "$seedInfo.name" },
           tag: { $first: "$seedInfo.tag" },
 
-          available: { $sum: 1 },
+          total: { $sum: 1 },
+
+          stocks: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "STOCK-IN"] }, 1, 0],
+            },
+          },
+
+          available: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "INSERT-IN"] }, 1, 0],
+            },
+          },
+
+          distributed: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "STOCK-OUT"] }, 1, 0],
+            },
+          },
+
+          mortality: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "MORTALITY"] }, 1, 0],
+            },
+          },
+
+          replaced: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "REPLACED"] }, 1, 0],
+            },
+          },
         },
       },
 
-      // FORMAT OUTPUT
       {
         $project: {
           _id: 0,
@@ -55,7 +74,12 @@ export default async function handler(req, res) {
           seed: "$_id.seed",
           name: 1,
           tag: 1,
+          total: 1,
+          stocks: 1,
           available: 1,
+          distributed: 1,
+          mortality: 1,
+          replaced: 1,
         },
       },
 
