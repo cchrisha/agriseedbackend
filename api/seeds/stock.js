@@ -11,14 +11,7 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const {
-      seedId,
-      quantity,
-      action,
-      block,
-      lot,
-    } = req.body;
-
+    const { seedId, quantity, action, block, lot } = req.body;
     const qty = Number(quantity);
 
     const role = req.headers.role || "admin";
@@ -31,13 +24,10 @@ export default async function handler(req, res) {
     const seed = await Seed.findById(seedId).lean();
     if (!seed) return res.status(404).json({ message: "Seed not found" });
 
-    let affected = [];
-
-    // =========================
-    // STOCK-IN (NURSERY / EXTRA)
-    // =========================
+    // =====================================================
+    // 🌱 STOCK-IN (EXTRA / NURSERY)
+    // =====================================================
     if (action === "STOCK-IN") {
-
       const lastStock = await SeedStock.findOne({ seed: seedId })
         .sort({ stockNo: -1 })
         .lean();
@@ -67,20 +57,20 @@ export default async function handler(req, res) {
         seedName: seed.name,
         seedTag: seed.tag,
         quantity: qty,
-        process: action,
+        process: "STOCK-IN",
       });
 
       return res.status(201).json({ message: "Stock added" });
     }
 
-    // =========================
-    // INSERT-IN (PLANTING)
-    // =========================
+    // =====================================================
+    // 🌾 INSERT-IN (PLANTING TO BLOCK + LOT)
+    // =====================================================
     if (action === "INSERT-IN") {
-
       if (!block || !lot)
         return res.status(400).json({ message: "Block & Lot required" });
 
+      // bawal occupied
       const occupied = await SeedStock.findOne({
         block,
         lot,
@@ -88,12 +78,12 @@ export default async function handler(req, res) {
       });
 
       if (occupied) {
-        return res.status(400).json({
-          message: "Block and Lot already occupied",
-        });
+        return res
+          .status(400)
+          .json({ message: "Block and Lot already occupied" });
       }
 
-      affected = await SeedStock.find({
+      const affected = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
       })
@@ -104,7 +94,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: "Not enough nursery stock" });
 
       await SeedStock.updateMany(
-        { _id: { $in: affected.map(s => s._id) } },
+        { _id: { $in: affected.map((s) => s._id) } },
         {
           $set: {
             status: "INSERT-IN",
@@ -121,7 +111,7 @@ export default async function handler(req, res) {
         seedName: seed.name,
         seedTag: seed.tag,
         quantity: qty,
-        process: action,
+        process: "INSERT-IN",
       });
 
       return res.status(200).json({ message: "Seedlings planted" });
