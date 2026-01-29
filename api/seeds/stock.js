@@ -93,16 +93,19 @@ export default async function handler(req, res) {
       if (affected.length < qty)
         return res.status(400).json({ message: "Not enough nursery stock" });
 
-      await SeedStock.updateMany(
-        { _id: { $in: affected.map((s) => s._id) } },
-        {
-          $set: {
-            status: "INSERT-IN",
-            block,
-            lot,
-          },
-        }
-      );
+const result = await SeedStock.updateMany(
+  { _id: { $in: affected.map(s => s._id) } },
+  {
+    $set: {
+      status: "INSERT-IN",
+      block: Number(block),
+      lot: Number(lot),
+    },
+  }
+);
+
+console.log("UPDATED:", result);
+
 
       await ActivityLog.create({
         user,
