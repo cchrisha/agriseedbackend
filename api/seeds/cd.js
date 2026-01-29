@@ -4,25 +4,21 @@ import ActivityLog from "../../models/ActivityLog.js";
 
 export default async function handler(req, res) {
   await dbConnect();
+
   const role = req.headers.role || "admin";
   const user = req.headers.user || "System";
 
   try {
 
     // ===============================
-    // 🌱 CREATE SEED
+    // CREATE SEED (TYPE ONLY)
     // ===============================
     if (req.method === "POST") {
 
-      const { name, variety, block, lot, datePlanted, address } = req.body;
+      const { name, variety, datePlanted, address } = req.body;
 
-      if (!name || !block || !lot || !datePlanted || !address) {
+      if (!name || !datePlanted || !address) {
         return res.status(400).json({ message: "Missing fields" });
-      }
-
-      const occupied = await Seed.findOne({ block, lot, isDeleted: false });
-      if (occupied) {
-        return res.status(400).json({ message: "Block and lot already occupied" });
       }
 
       const seedCode = name.substring(0, 3).toUpperCase();
@@ -32,38 +28,32 @@ export default async function handler(req, res) {
       const month = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
 
-      const tag = `PRB-${seedCode}-${year}-${month}-${day}-B${month}`;
+      const tag = `PRB-${seedCode}-${year}-${month}-${day}`;
 
       const seed = await Seed.create({
         name,
         variety,
-        block,
-        lot,
         datePlanted,
         address,
         tag,
         isDeleted: false,
       });
 
-        try {
-        await ActivityLog.create({
-            user,
-            role,
-            seed: seed._id,
-            seedName: seed.name,
-            seedTag: seed.tag,
-            quantity: 0,
-            process: "CREATED",
-        });
-        } catch (logErr) {
-        console.error("LOG FAILED:", logErr);
-        }
+      await ActivityLog.create({
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: 0,
+        process: "CREATED",
+      });
 
       return res.status(201).json(seed);
     }
 
     // ===============================
-    // 🗑 SOFT DELETE
+    // SOFT DELETE
     // ===============================
     if (req.method === "DELETE") {
 
@@ -76,8 +66,7 @@ export default async function handler(req, res) {
       seed.deletedAt = new Date();
       await seed.save();
 
-    try {
-    await ActivityLog.create({
+      await ActivityLog.create({
         user,
         role,
         seed: seed._id,
@@ -85,10 +74,7 @@ export default async function handler(req, res) {
         seedTag: seed.tag,
         quantity: 0,
         process: "DELETED",
-    });
-    } catch (e) {
-    console.error("DELETE LOG FAILED", e);
-    }
+      });
 
       return res.json({ message: "Seed soft deleted" });
     }

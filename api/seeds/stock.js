@@ -11,14 +11,20 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    const seedId = req.body.seedId;
-    const quantity = Number(req.body.quantity);
-    const action = req.body.action;
+    const {
+      seedId,
+      quantity,
+      action,
+      block, // only for INSERT-IN
+      lot,   // only for INSERT-IN
+    } = req.body;
+
+    const qty = Number(quantity);
 
     const role = req.headers.role || "admin";
     const user = req.headers.user || "System";
 
-    if (!seedId || !quantity || quantity <= 0 || !action) {
+    if (!seedId || !qty || qty <= 0 || !action) {
       return res.status(400).json({ message: "Invalid input" });
     }
 
@@ -28,7 +34,7 @@ export default async function handler(req, res) {
     let affected = [];
 
     // =========================
-    // STOCK-IN
+    // STOCK-IN (NURSERY / EXTRA)
     // =========================
     if (action === "STOCK-IN") {
       const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
@@ -36,7 +42,7 @@ export default async function handler(req, res) {
       });
 
       const startNo = lastStock ? lastStock.stockNo + 1 : 1;
-      const endNo = startNo + quantity - 1;
+      const endNo = startNo + qty - 1;
 
       const stocks = [];
 
@@ -46,6 +52,8 @@ export default async function handler(req, res) {
           stockNo: i,
           tag: `${seed.tag}-${i}`,
           status: "STOCK-IN",
+          block: null,
+          lot: null,
         });
       }
 
@@ -53,22 +61,45 @@ export default async function handler(req, res) {
     }
 
     // =========================
-    // INSERT-IN
+    // INSERT-IN (PLANTING → AVAILABLE)
     // =========================
     if (action === "INSERT-IN") {
+
+      if (!block || !lot)
+        return res.status(400).json({ message: "Block & Lot required" });
+
+      // ❌ bawal kung occupied na
+      const occupied = await SeedStock.findOne({
+        block,
+        lot,
+        status: "INSERT-IN",
+      });
+
+      if (occupied) {
+        return res.status(400).json({
+          message: "Block and Lot already occupied",
+        });
+      }
+
       affected = await SeedStock.find({
         seed: seedId,
         status: "STOCK-IN",
       })
         .sort({ stockNo: 1 })
-        .limit(quantity);
+        .limit(qty);
 
-      if (affected.length < quantity)
-        return res.status(400).json({ message: "Not enough seedlings" });
+      if (affected.length < qty)
+        return res.status(400).json({ message: "Not enough nursery stock" });
 
       await SeedStock.updateMany(
-        { _id: { $in: affected.map((s) => s._id) } },
-        { $set: { status: "INSERT-IN" } }
+        { _id: { $in: affected.map(s => s._id) } },
+        {
+          $set: {
+            status: "INSERT-IN",
+            block,
+            lot,
+          },
+        }
       );
     }
 
@@ -81,19 +112,19 @@ export default async function handler(req, res) {
         status: "INSERT-IN",
       })
         .sort({ stockNo: 1 })
-        .limit(quantity);
+        .limit(qty);
 
-      if (affected.length < quantity)
-        return res.status(400).json({ message: "Not enough seedlings" });
+      if (affected.length < qty)
+        return res.status(400).json({ message: "Not enough available seedlings" });
 
       await SeedStock.updateMany(
-        { _id: { $in: affected.map((s) => s._id) } },
+        { _id: { $in: affected.map(s => s._id) } },
         { $set: { status: action } }
       );
     }
 
     // =========================
-    // REPLACED
+    // REPLACED (FROM STOCK-IN)
     // =========================
     if (action === "REPLACED") {
       affected = await SeedStock.find({
@@ -101,21 +132,21 @@ export default async function handler(req, res) {
         status: "STOCK-IN",
       })
         .sort({ stockNo: 1 })
-        .limit(quantity);
+        .limit(qty);
 
-      if (affected.length < quantity)
+      if (affected.length < qty)
         return res
           .status(400)
-          .json({ message: "Not enough seedlings for replacement" });
+          .json({ message: "Not enough nursery stock for replacement" });
 
       await SeedStock.updateMany(
-        { _id: { $in: affected.map((s) => s._id) } },
+        { _id: { $in: affected.map(s => s._id) } },
         { $set: { status: "REPLACED" } }
       );
     }
 
     // =========================
-    // ACTIVITY LOG (SAFE)
+    // ACTIVITY LOG
     // =========================
     try {
       await ActivityLog.create({
@@ -124,7 +155,7 @@ export default async function handler(req, res) {
         seed: seed._id,
         seedName: seed.name,
         seedTag: seed.tag,
-        quantity,
+        quantity: qty,
         process: action,
       });
     } catch (e) {
