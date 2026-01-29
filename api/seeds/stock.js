@@ -60,6 +60,16 @@ export default async function handler(req, res) {
 
       await SeedStock.insertMany(stocks);
 
+      await ActivityLog.create({
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: qty,
+        process: action,
+      });
+
       return res.status(201).json({ message: "Stock added" });
     }
 
@@ -71,7 +81,6 @@ export default async function handler(req, res) {
       if (!block || !lot)
         return res.status(400).json({ message: "Block & Lot required" });
 
-      // ❌ bawal occupied
       const occupied = await SeedStock.findOne({
         block,
         lot,
@@ -104,33 +113,19 @@ export default async function handler(req, res) {
           },
         }
       );
+
+      await ActivityLog.create({
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: qty,
+        process: action,
+      });
+
+      return res.status(200).json({ message: "Seedlings planted" });
     }
-
-    // =========================
-    // STOCK-OUT / MORTALITY
-    // =========================
-    // (leave commented)
-
-    // =========================
-    // REPLACED
-    // =========================
-    // (leave commented)
-
-
-      // ACTIVITY LOG
-      try {
-        await ActivityLog.create({
-          user,
-          role,
-          seed: seed._id,
-          seedName: seed.name,
-          seedTag: seed.tag,
-          quantity: qty,
-          process: "STOCK-IN",
-        });
-      } catch (e) {
-        console.error("LOG FAILED", e);
-      }
 
     return res.status(400).json({ message: "Unknown action" });
 
