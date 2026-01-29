@@ -21,8 +21,19 @@ const SeedStockSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["STOCK-IN", "STOCK-OUT", "MORTALITY","REPLACED"],
+      enum: ["STOCK-IN", "INSERT-IN", "STOCK-OUT", "MORTALITY", "REPLACED"],
       default: "STOCK-IN",
+    },
+
+    // ✅ ADD THESE
+    block: {
+      type: Number,
+      default: null,
+    },
+
+    lot: {
+      type: Number,
+      default: null,
     },
   },
   { timestamps: true }
