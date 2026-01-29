@@ -24,44 +24,47 @@ export default async function handler(req, res) {
     const seed = await Seed.findById(seedId).lean();
     if (!seed) return res.status(404).json({ message: "Seed not found" });
 
-    // =====================================================
-    // 🌱 STOCK-IN (EXTRA / NURSERY)
-    // =====================================================
-    if (action === "STOCK-IN") {
-      const lastStock = await SeedStock.findOne({ seed: seedId })
-        .sort({ stockNo: -1 })
-        .lean();
+// =====================================================
+// 🌱 STOCK-IN (EXTRA / NURSERY)
+// =====================================================
+if (action === "STOCK-IN") {
 
-      const startNo = lastStock ? lastStock.stockNo + 1 : 1;
-      const endNo = startNo + qty - 1;
+  const lastStock = await SeedStock.findOne({ seed: seedId })
+    .sort({ stockNo: -1 });
 
-      const stocks = [];
+  const startNo = lastStock ? lastStock.stockNo + 1 : 1;
 
-      for (let i = startNo; i <= endNo; i++) {
-        stocks.push({
-          seed: seedId,
-          stockNo: i,
-          tag: `${seed.tag}-${i}`,
-          status: "STOCK-IN",
-          block: null,
-          lot: null,
-        });
-      }
+  const stocks = [];
 
-      await SeedStock.insertMany(stocks);
+  for (let i = 0; i < qty; i++) {
+    stocks.push({
+      seed: seedId,
+      stockNo: startNo + i,
+      tag: `${seed.tag}-${startNo + i}`,
+      status: "STOCK-IN",
+      block: null,
+      lot: null,
+    });
+  }
 
-      await ActivityLog.create({
-        user,
-        role,
-        seed: seed._id,
-        seedName: seed.name,
-        seedTag: seed.tag,
-        quantity: qty,
-        process: "STOCK-IN",
-      });
+  await SeedStock.insertMany(stocks, { ordered: false });
 
-      return res.status(201).json({ message: "Stock added" });
-    }
+  await ActivityLog.create({
+    user,
+    role,
+    seed: seed._id,
+    seedName: seed.name,
+    seedTag: seed.tag,
+    quantity: qty,
+    process: "STOCK-IN",
+  });
+
+  return res.status(201).json({
+    message: "Stock added",
+    added: qty,
+  });
+}
+
 
     // =====================================================
     // 🌾 INSERT-IN (PLANTING TO BLOCK + LOT)
