@@ -39,15 +39,19 @@ export default async function handler(req, res) {
         isDeleted: false,
       });
 
-      await ActivityLog.create({
-        user,
-        role,
-        seed: seed._id,
-        seedName: seed.name,
-        seedTag: seed.tag,
-        quantity: 0,
-        process: "CREATED",
-      });
+try {
+  await ActivityLog.create({
+    user,
+    role,
+    seed: seed._id,
+    seedName: seed.name,
+    seedTag: seed.tag,
+    quantity: 0,
+    process: "CREATED",
+  });
+} catch (e) {
+  console.error("LOG FAILED", e);
+}
 
       return res.status(201).json(seed);
     }
