@@ -15,8 +15,8 @@ export default async function handler(req, res) {
       seedId,
       quantity,
       action,
-      block, // only for INSERT-IN
-      lot,   // only for INSERT-IN
+      block,
+      lot,
     } = req.body;
 
     const qty = Number(quantity);
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Invalid input" });
     }
 
-    const seed = await Seed.findById(seedId);
+    const seed = await Seed.findById(seedId).lean();
     if (!seed) return res.status(404).json({ message: "Seed not found" });
 
     let affected = [];
@@ -37,9 +37,10 @@ export default async function handler(req, res) {
     // STOCK-IN (NURSERY / EXTRA)
     // =========================
     if (action === "STOCK-IN") {
-      const lastStock = await SeedStock.findOne({ seed: seedId }).sort({
-        stockNo: -1,
-      });
+
+      const lastStock = await SeedStock.findOne({ seed: seedId })
+        .sort({ stockNo: -1 })
+        .lean();
 
       const startNo = lastStock ? lastStock.stockNo + 1 : 1;
       const endNo = startNo + qty - 1;
@@ -57,115 +58,45 @@ export default async function handler(req, res) {
         });
       }
 
-      affected = await SeedStock.insertMany(stocks);
+      await SeedStock.insertMany(stocks);
+
+      // ACTIVITY LOG
+      try {
+        await ActivityLog.create({
+          user,
+          role,
+          seed: seed._id,
+          seedName: seed.name,
+          seedTag: seed.tag,
+          quantity: qty,
+          process: "STOCK-IN",
+        });
+      } catch (e) {
+        console.error("LOG FAILED", e);
+      }
+
+      return res.status(201).json({ message: "Stock added" });
     }
 
     // =========================
     // INSERT-IN (PLANTING → AVAILABLE)
     // =========================
-    if (action === "INSERT-IN") {
-
-      if (!block || !lot)
-        return res.status(400).json({ message: "Block & Lot required" });
-
-      // ❌ bawal kung occupied na
-      const occupied = await SeedStock.findOne({
-        block,
-        lot,
-        status: "INSERT-IN",
-      });
-
-      if (occupied) {
-        return res.status(400).json({
-          message: "Block and Lot already occupied",
-        });
-      }
-
-      affected = await SeedStock.find({
-        seed: seedId,
-        status: "STOCK-IN",
-      })
-        .sort({ stockNo: 1 })
-        .limit(qty);
-
-      if (affected.length < qty)
-        return res.status(400).json({ message: "Not enough nursery stock" });
-
-      await SeedStock.updateMany(
-        { _id: { $in: affected.map(s => s._id) } },
-        {
-          $set: {
-            status: "INSERT-IN",
-            block,
-            lot,
-          },
-        }
-      );
-    }
+    // (leave commented)
 
     // =========================
     // STOCK-OUT / MORTALITY
     // =========================
-    if (["STOCK-OUT", "MORTALITY"].includes(action)) {
-      affected = await SeedStock.find({
-        seed: seedId,
-        status: "INSERT-IN",
-      })
-        .sort({ stockNo: 1 })
-        .limit(qty);
-
-      if (affected.length < qty)
-        return res.status(400).json({ message: "Not enough available seedlings" });
-
-      await SeedStock.updateMany(
-        { _id: { $in: affected.map(s => s._id) } },
-        { $set: { status: action } }
-      );
-    }
+    // (leave commented)
 
     // =========================
-    // REPLACED (FROM STOCK-IN)
+    // REPLACED
     // =========================
-    if (action === "REPLACED") {
-      affected = await SeedStock.find({
-        seed: seedId,
-        status: "STOCK-IN",
-      })
-        .sort({ stockNo: 1 })
-        .limit(qty);
+    // (leave commented)
 
-      if (affected.length < qty)
-        return res
-          .status(400)
-          .json({ message: "Not enough nursery stock for replacement" });
-
-      await SeedStock.updateMany(
-        { _id: { $in: affected.map(s => s._id) } },
-        { $set: { status: "REPLACED" } }
-      );
-    }
-
-    // =========================
-    // ACTIVITY LOG
-    // =========================
-    try {
-      await ActivityLog.create({
-        user,
-        role,
-        seed: seed._id,
-        seedName: seed.name,
-        seedTag: seed.tag,
-        quantity: qty,
-        process: action,
-      });
-    } catch (e) {
-      console.error("LOG FAILED", e);
-    }
-
-    return res.json({ message: `${action} successful` });
+    return res.status(400).json({ message: "Unknown action" });
 
   } catch (err) {
-    console.error(err);
+    console.error("STOCK API ERROR:", err);
     return res.status(500).json({ message: "Server error" });
   }
 }
