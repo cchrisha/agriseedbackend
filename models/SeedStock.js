@@ -25,7 +25,6 @@ const SeedStockSchema = new mongoose.Schema(
       default: "STOCK-IN",
     },
 
-    // ✅ ADD THESE
     block: {
       type: Number,
       default: null,
