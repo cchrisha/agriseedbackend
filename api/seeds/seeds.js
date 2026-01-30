@@ -1,5 +1,6 @@
 import dbConnect from "../../lib/db.js";
 import Seed from "../../models/Seed.js";
+import SeedStock from "../../models/SeedStock.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -9,27 +10,22 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
+    // Seed list (dropdown)
     const seeds = await Seed.find(
       {
-        $or: [
-          { isDeleted: false },
-          { isDeleted: { $exists: false } },
-        ],
+        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       },
       {
         name: 1,
-        block: 1,
-        lot: 1,
         tag: 1,
-        createdAt: 1,
       }
     ).sort({ createdAt: -1 });
 
-    // occupied block + lot
-    const occupied = seeds.map((s) => ({
-      block: s.block,
-      lot: s.lot,
-    }));
+    // OCCUPIED comes from SeedStock (INSERT-IN only)
+    const occupied = await SeedStock.find(
+      { status: "INSERT-IN" },
+      { block: 1, lot: 1 }
+    );
 
     return res.json({
       seeds,
