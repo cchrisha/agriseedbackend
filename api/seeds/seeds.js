@@ -10,19 +10,57 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    // seed list (dropdown)
-    const seeds = await Seed.find(
+    // ===============================
+    // GET SEEDS + FIRST INSERT LOCATION
+    // ===============================
+    const seeds = await Seed.aggregate([
       {
-        $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+        $match: {
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+        },
       },
-      { name: 1, tag: 1 }
-    ).sort({ createdAt: -1 });
 
-    // 🔥 DISTINCT occupied block + lot
-    const occupied = await SeedStock.aggregate([
+      // join seedstocks
       {
-        $match: { status: "INSERT-IN" },
+        $lookup: {
+          from: "seedstocks",
+          localField: "_id",
+          foreignField: "seed",
+          as: "stocks",
+        },
       },
+
+      // pick FIRST INSERT-IN as block+lot
+      {
+        $addFields: {
+          planted: {
+            $first: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "INSERT-IN"] },
+              },
+            },
+          },
+        },
+      },
+
+      {
+        $project: {
+          name: 1,
+          tag: 1,
+          block: "$planted.block",
+          lot: "$planted.lot",
+        },
+      },
+    ]);
+
+    // ===============================
+    // UNIQUE OCCUPIED BLOCK+LOT
+    // ===============================
+    const occupied = await SeedStock.aggregate([
+      { $match: { status: "INSERT-IN" } },
+
       {
         $group: {
           _id: {
@@ -31,6 +69,7 @@ export default async function handler(req, res) {
           },
         },
       },
+
       {
         $project: {
           _id: 0,
@@ -40,10 +79,7 @@ export default async function handler(req, res) {
       },
     ]);
 
-    return res.json({
-      seeds,
-      occupied,
-    });
+    return res.json({ seeds, occupied });
 
   } catch (err) {
     console.error("FETCH ERROR:", err);
