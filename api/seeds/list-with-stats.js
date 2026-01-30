@@ -1,67 +1,97 @@
 import dbConnect from "../../lib/db.js";
-import SeedStock from "../../models/SeedStock.js";
 import Seed from "../../models/Seed.js";
 
 export default async function handler(req, res) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ message: "Method not allowed" });
-  }
+
+  await dbConnect();
 
   try {
-    await dbConnect();
 
-    const planted = await SeedStock.aggregate([
-      {
-        $match: { status: "INSERT-IN" },
-      },
+    const seeds = await Seed.aggregate([
 
       {
-        $group: {
-          _id: {
-            seed: "$seed",
-            block: "$block",
-            lot: "$lot",
-          },
-
-          available: { $sum: 1 },
+        $match: {
+          $or: [
+            { isDeleted: false },
+            { isDeleted: { $exists: false } },
+          ],
         },
       },
 
       {
         $lookup: {
-          from: "seeds",
-          localField: "_id.seed",
-          foreignField: "_id",
-          as: "seed",
+          from: "seedstocks",
+          localField: "_id",
+          foreignField: "seed",
+          as: "stocks",
         },
       },
-
-      { $unwind: "$seed" },
 
       {
-        $project: {
-          _id: "$seed._id",
-          name: "$seed.name",
-          tag: "$seed.tag",
+        $addFields: {
 
-          block: "$_id.block",
-          lot: "$_id.lot",
+          total: { $size: "$stocks" },
 
-          available: 1,
+          stocks: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "STOCK-IN"] },
+              },
+            },
+          },
 
-          distributed: { $literal: 0 },
-          mortality: { $literal: 0 },
-          stocks: { $literal: 0 },
+          available: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "INSERT-IN"] },
+              },
+            },
+          },
 
-          total: "$available",
+          distributed: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "STOCK-OUT"] },
+              },
+            },
+          },
+
+          mortality: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "MORTALITY"] },
+              },
+            },
+          },
+
+          replaced: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "REPLACED"] },
+              },
+            },
+          },
         },
       },
+
+      { $sort: { createdAt: -1 } },
+
     ]);
 
-    return res.json(planted);
+    res.json(seeds);
 
   } catch (err) {
-    console.error("LIST ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
 }
