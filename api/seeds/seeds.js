@@ -10,22 +10,35 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    // Seed list (dropdown)
+    // seed list (dropdown)
     const seeds = await Seed.find(
       {
         $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
       },
-      {
-        name: 1,
-        tag: 1,
-      }
+      { name: 1, tag: 1 }
     ).sort({ createdAt: -1 });
 
-    // OCCUPIED comes from SeedStock (INSERT-IN only)
-    const occupied = await SeedStock.find(
-      { status: "INSERT-IN" },
-      { block: 1, lot: 1 }
-    );
+    // 🔥 DISTINCT occupied block + lot
+    const occupied = await SeedStock.aggregate([
+      {
+        $match: { status: "INSERT-IN" },
+      },
+      {
+        $group: {
+          _id: {
+            block: "$block",
+            lot: "$lot",
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          block: "$_id.block",
+          lot: "$_id.lot",
+        },
+      },
+    ]);
 
     return res.json({
       seeds,
