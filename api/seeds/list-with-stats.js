@@ -13,28 +13,21 @@ export default async function handler(req, res) {
     await dbConnect();
 
     // ===============================
-    // GET ALL SEEDS
+    // ALL SEEDS
     // ===============================
     const seeds = await Seed.find({
       $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     });
 
     // ===============================
-    // GET ALL LOTS + SEED INFO
+    // ALL LOTS + SEED INFO
     // ===============================
     const lots = await Lot.find().populate("seed");
 
     // ===============================
-    // GET SEED STOCK STATS
+    // STOCK STATS
     // ===============================
     const stats = await SeedStock.aggregate([
-
-      {
-        $match: {
-          block: { $ne: null },
-          lot: { $ne: null },
-        },
-      },
 
       {
         $group: {
@@ -44,8 +37,21 @@ export default async function handler(req, res) {
             lot: "$lot",
           },
 
+          // AVAILABLE only when planted
           available: {
-            $sum: { $cond: [{ $eq: ["$status", "AVAILABLE"] }, 1, 0] },
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$status", "AVAILABLE"] },
+                    { $ne: ["$block", null] },
+                    { $ne: ["$lot", null] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
           },
 
           distributed: {
@@ -60,12 +66,14 @@ export default async function handler(req, res) {
             $sum: { $cond: [{ $eq: ["$status", "REPLACED"] }, 1, 0] },
           },
 
+          // ALL STOCK-IN counted globally
           stocks: {
             $sum: { $cond: [{ $eq: ["$status", "STOCK-IN"] }, 1, 0] },
           },
         },
       },
 
+      // JOIN SEED INFO
       {
         $lookup: {
           from: "seeds",
@@ -77,9 +85,19 @@ export default async function handler(req, res) {
 
       { $unwind: "$seed" },
 
+      // FILTER DELETED SEEDS
+      {
+        $match: {
+          $or: [
+            { "seed.isDeleted": false },
+            { "seed.isDeleted": { $exists: false } },
+          ],
+        },
+      },
+
       {
         $project: {
-          _id: "$seed._id",
+          seedId: "$seed._id",
           name: "$seed.name",
           tag: "$seed.tag",
           block: "$_id.block",
@@ -102,7 +120,7 @@ export default async function handler(req, res) {
         s =>
           s.block === l.block &&
           s.lot === l.lot &&
-          String(s._id) === String(l.seed?._id)
+          String(s.seedId) === String(l.seed?._id)
       );
 
       return {
