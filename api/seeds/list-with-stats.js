@@ -20,7 +20,9 @@ export default async function handler(req, res) {
         },
       },
 
-      // join stocks
+      // ===============================
+      // JOIN SEED STOCKS
+      // ===============================
       {
         $lookup: {
           from: "seedstocks",
@@ -30,7 +32,9 @@ export default async function handler(req, res) {
         },
       },
 
-      // get FIRST planted location
+      // ===============================
+      // FIRST AVAILABLE LOCATION
+      // ===============================
       {
         $addFields: {
           planted: {
@@ -45,7 +49,9 @@ export default async function handler(req, res) {
         },
       },
 
-      // compute stats
+      // ===============================
+      // COMPUTE STATS
+      // ===============================
       {
         $addFields: {
 
@@ -89,10 +95,24 @@ export default async function handler(req, res) {
             },
           },
 
-          stocks: { $size: "$stocks" },
+          // ✅ CURRENT STOCKS ONLY (STOCK-IN + AVAILABLE)
+          stocks: {
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: {
+                  $in: ["$$s.status", ["STOCK-IN"]],
+                },
+              },
+            },
+          },
         },
       },
 
+      // ===============================
+      // FINAL SHAPE
+      // ===============================
       {
         $project: {
           name: 1,
