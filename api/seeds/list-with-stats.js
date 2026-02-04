@@ -4,121 +4,96 @@ import Seed from "../../models/Seed.js";
 
 export default async function handler(req, res) {
 
-  if (req.method !== "GET") {
+  if (req.method !== "GET")
     return res.status(405).json({ message: "Method not allowed" });
-  }
 
   try {
 
     await dbConnect();
 
-    const stats = await Seed.aggregate([
+    const stats = await SeedStock.aggregate([
 
+      // ONLY LOT RELATED STOCKS
       {
         $match: {
-          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+          block: { $ne: null },
+          lot: { $ne: null },
         },
       },
 
-      // ===============================
-      // JOIN SEED STOCKS
-      // ===============================
+      // GROUP PER SEED + BLOCK + LOT
       {
-        $lookup: {
-          from: "seedstocks",
-          localField: "_id",
-          foreignField: "seed",
-          as: "stocks",
-        },
-      },
-
-      // ===============================
-      // FIRST AVAILABLE LOCATION
-      // ===============================
-      {
-        $addFields: {
-          planted: {
-            $first: {
-              $filter: {
-                input: "$stocks",
-                as: "s",
-                cond: { $eq: ["$$s.status", "AVAILABLE"] },
-              },
-            },
+        $group: {
+          _id: {
+            seed: "$seed",
+            block: "$block",
+            lot: "$lot",
           },
-        },
-      },
-
-      // ===============================
-      // COMPUTE STATS
-      // ===============================
-      {
-        $addFields: {
 
           available: {
-            $size: {
-              $filter: {
-                input: "$stocks",
-                as: "s",
-                cond: { $eq: ["$$s.status", "AVAILABLE"] },
-              },
+            $sum: {
+              $cond: [{ $eq: ["$status", "AVAILABLE"] }, 1, 0],
             },
           },
 
           distributed: {
-            $size: {
-              $filter: {
-                input: "$stocks",
-                as: "s",
-                cond: { $eq: ["$$s.status", "STOCK-OUT"] },
-              },
+            $sum: {
+              $cond: [{ $eq: ["$status", "STOCK-OUT"] }, 1, 0],
             },
           },
 
           mortality: {
-            $size: {
-              $filter: {
-                input: "$stocks",
-                as: "s",
-                cond: { $eq: ["$$s.status", "MORTALITY"] },
-              },
+            $sum: {
+              $cond: [{ $eq: ["$status", "MORTALITY"] }, 1, 0],
             },
           },
 
           replaced: {
-            $size: {
-              $filter: {
-                input: "$stocks",
-                as: "s",
-                cond: { $eq: ["$$s.status", "REPLACED"] },
-              },
+            $sum: {
+              $cond: [{ $eq: ["$status", "REPLACED"] }, 1, 0],
             },
           },
 
-          // ✅ CURRENT STOCKS ONLY (STOCK-IN + AVAILABLE)
           stocks: {
-            $size: {
-              $filter: {
-                input: "$stocks",
-                as: "s",
-                cond: {
-                  $in: ["$$s.status", ["STOCK-IN"]],
-                },
-              },
+            $sum: {
+              $cond: [{ $eq: ["$status", "STOCK-IN"] }, 1, 0],
             },
           },
         },
       },
 
-      // ===============================
-      // FINAL SHAPE
-      // ===============================
+      // JOIN SEED INFO
+      {
+        $lookup: {
+          from: "seeds",
+          localField: "_id.seed",
+          foreignField: "_id",
+          as: "seed",
+        },
+      },
+
+      { $unwind: "$seed" },
+
+      // FILTER DELETED SEEDS
+      {
+        $match: {
+          $or: [
+            { "seed.isDeleted": false },
+            { "seed.isDeleted": { $exists: false } },
+          ],
+        },
+      },
+
+      // FINAL FORMAT
       {
         $project: {
-          name: 1,
-          tag: 1,
-          block: "$planted.block",
-          lot: "$planted.lot",
+          _id: "$seed._id",
+          name: "$seed.name",
+          tag: "$seed.tag",
+
+          block: "$_id.block",
+          lot: "$_id.lot",
+
           available: 1,
           distributed: 1,
           mortality: 1,
@@ -126,7 +101,6 @@ export default async function handler(req, res) {
           stocks: 1,
         },
       },
-
     ]);
 
     return res.json(stats);
