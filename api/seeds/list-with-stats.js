@@ -12,65 +12,93 @@ export default async function handler(req, res) {
 
     await dbConnect();
 
-    const stats = await SeedStock.aggregate([
+    const stats = await Seed.aggregate([
 
-      // only records with block+lot
       {
         $match: {
-          block: { $ne: null },
-          lot: { $ne: null },
+          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
         },
       },
 
+      // join stocks
       {
-        $group: {
-          _id: {
-            seed: "$seed",
-            block: "$block",
-            lot: "$lot",
+        $lookup: {
+          from: "seedstocks",
+          localField: "_id",
+          foreignField: "seed",
+          as: "stocks",
+        },
+      },
+
+      // get FIRST planted location
+      {
+        $addFields: {
+          planted: {
+            $first: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "AVAILABLE"] },
+              },
+            },
           },
+        },
+      },
+
+      // compute stats
+      {
+        $addFields: {
 
           available: {
-            $sum: { $cond: [{ $eq: ["$status", "AVAILABLE"] }, 1, 0] },
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "AVAILABLE"] },
+              },
+            },
           },
 
           distributed: {
-            $sum: { $cond: [{ $eq: ["$status", "STOCK-OUT"] }, 1, 0] },
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "STOCK-OUT"] },
+              },
+            },
           },
 
           mortality: {
-            $sum: { $cond: [{ $eq: ["$status", "MORTALITY"] }, 1, 0] },
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "MORTALITY"] },
+              },
+            },
           },
 
           replaced: {
-            $sum: { $cond: [{ $eq: ["$status", "REPLACED"] }, 1, 0] },
+            $size: {
+              $filter: {
+                input: "$stocks",
+                as: "s",
+                cond: { $eq: ["$$s.status", "REPLACED"] },
+              },
+            },
           },
 
-          stocks: {
-            $sum: 1,
-          },
+          stocks: { $size: "$stocks" },
         },
       },
-
-      {
-        $lookup: {
-          from: "seeds",
-          localField: "_id.seed",
-          foreignField: "_id",
-          as: "seed",
-        },
-      },
-
-      { $unwind: "$seed" },
 
       {
         $project: {
-          _id: 0,
-          seedId: "$seed._id",
-          name: "$seed.name",
-          tag: "$seed.tag",
-          block: "$_id.block",
-          lot: "$_id.lot",
+          name: 1,
+          tag: 1,
+          block: "$planted.block",
+          lot: "$planted.lot",
           available: 1,
           distributed: 1,
           mortality: 1,

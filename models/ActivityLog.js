@@ -29,7 +29,7 @@ const ActivityLogSchema = new mongoose.Schema(
         "CREATED",
         "DELETED",
         "STOCK-IN",
-        "INSERT-IN",
+        "AVAILABLE",
         "STOCK-OUT",
         "MORTALITY",
         "REPLACED",

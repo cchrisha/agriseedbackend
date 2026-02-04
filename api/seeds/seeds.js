@@ -1,88 +1,26 @@
 import dbConnect from "../../lib/db.js";
 import Seed from "../../models/Seed.js";
-import SeedStock from "../../models/SeedStock.js";
+import Lot from "../../models/Lot.js";
 
-export default async function handler(req, res) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ message: "Method not allowed" });
-  }
+export default async function handler(req,res){
 
-  try {
-    await dbConnect();
+ if(req.method!=="GET")
+  return res.status(405).json({message:"Method not allowed"});
 
-    // ===============================
-    // GET SEEDS + FIRST INSERT LOCATION
-    // ===============================
-    const seeds = await Seed.aggregate([
-      {
-        $match: {
-          $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-        },
-      },
+ try{
 
-      // join seedstocks
-      {
-        $lookup: {
-          from: "seedstocks",
-          localField: "_id",
-          foreignField: "seed",
-          as: "stocks",
-        },
-      },
+  await dbConnect();
 
-      // pick FIRST INSERT-IN as block+lot
-      {
-        $addFields: {
-          planted: {
-            $first: {
-              $filter: {
-                input: "$stocks",
-                as: "s",
-                cond: { $eq: ["$$s.status", "INSERT-IN"] },
-              },
-            },
-          },
-        },
-      },
+  const seeds = await Seed.find({
+   $or:[{isDeleted:false},{isDeleted:{$exists:false}}]
+  });
 
-      {
-        $project: {
-          name: 1,
-          tag: 1,
-          block: "$planted.block",
-          lot: "$planted.lot",
-        },
-      },
-    ]);
+  const lots = await Lot.find().populate("seed");
 
-    // ===============================
-    // UNIQUE OCCUPIED BLOCK+LOT
-    // ===============================
-    const occupied = await SeedStock.aggregate([
-      { $match: { status: "INSERT-IN" } },
+  return res.json({ seeds, lots });
 
-      {
-        $group: {
-          _id: {
-            block: "$block",
-            lot: "$lot",
-          },
-        },
-      },
-
-      {
-        $project: {
-          _id: 0,
-          block: "$_id.block",
-          lot: "$_id.lot",
-        },
-      },
-    ]);
-
-    return res.json({ seeds, occupied });
-
-  } catch (err) {
-    console.error("FETCH ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
+ }catch(err){
+  console.error(err);
+  res.status(500).json({message:err.message});
+ }
 }
