@@ -124,7 +124,6 @@ export default async function handler(req, res) {
           mortality: 1,
           replaced: 1,
           stocks: 1,
-          total: "$stocks",
         },
       },
 
