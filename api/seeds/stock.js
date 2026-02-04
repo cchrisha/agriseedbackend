@@ -26,7 +26,9 @@ export default async function handler(req, res) {
     const seed = await Seed.findById(seedId);
     if (!seed) return res.status(404).json({ message: "Seed not found" });
 
-    // 🌱 STOCK-IN
+    // ===============================
+    // 🌱 STOCK-IN (Add Stock)
+    // ===============================
     if (action === "STOCK-IN") {
 
       const last = await SeedStock.findOne({ seed: seedId })
@@ -62,21 +64,13 @@ export default async function handler(req, res) {
       return res.json({ message: "Stock added" });
     }
 
-    // 🌾 INSERT-IN
-    if (action === "INSERT-IN") {
+    // ===============================
+    // 📦 AVAILABLE (Add Available)
+    // ===============================
+    if (action === "AVAILABLE") {
 
-      if (!block || !lot) {
+      if (block == null || lot == null) {
         return res.status(400).json({ message: "Block & Lot required" });
-      }
-
-      const occupied = await SeedStock.findOne({
-        block,
-        lot,
-        status: "INSERT-IN",
-      });
-
-      if (occupied) {
-        return res.status(400).json({ message: "Occupied" });
       }
 
       const affected = await SeedStock.find({
@@ -94,7 +88,7 @@ export default async function handler(req, res) {
         { _id: { $in: affected.map(s => s._id) } },
         {
           $set: {
-            status: "INSERT-IN",
+            status: "AVAILABLE",
             block: Number(block),
             lot: Number(lot),
           },
@@ -108,16 +102,112 @@ export default async function handler(req, res) {
         seedName: seed.name,
         seedTag: seed.tag,
         quantity: qty,
-        process: "INSERT-IN",
+        process: "AVAILABLE",
       });
 
-      return res.json({ message: "Seedlings planted" });
+      return res.json({ message: "Added to available inventory" });
     }
 
-    res.status(400).json({ message: "Unknown action" });
+    // ===============================
+    // 📤 STOCK-OUT (Distribute)
+    // ===============================
+    if (action === "STOCK-OUT") {
+
+      const affected = await SeedStock.find({
+        seed: seedId,
+        status: "AVAILABLE",
+      }).limit(qty);
+
+      if (affected.length < qty) {
+        return res.status(400).json({ message: "Not enough available" });
+      }
+
+      await SeedStock.updateMany(
+        { _id: { $in: affected.map(s => s._id) } },
+        { $set: { status: "STOCK-OUT" } }
+      );
+
+      await ActivityLog.create({
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: qty,
+        process: "STOCK-OUT",
+      });
+
+      return res.json({ message: "Distributed successfully" });
+    }
+
+    // ===============================
+    // ☠ MORTALITY
+    // ===============================
+    if (action === "MORTALITY") {
+
+      const affected = await SeedStock.find({
+        seed: seedId,
+        status: "AVAILABLE",
+      }).limit(qty);
+
+      if (affected.length < qty) {
+        return res.status(400).json({ message: "Not enough available" });
+      }
+
+      await SeedStock.updateMany(
+        { _id: { $in: affected.map(s => s._id) } },
+        { $set: { status: "MORTALITY" } }
+      );
+
+      await ActivityLog.create({
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: qty,
+        process: "MORTALITY",
+      });
+
+      return res.json({ message: "Marked as mortality" });
+    }
+
+    // ===============================
+    // 🔁 REPLACED
+    // ===============================
+    if (action === "REPLACED") {
+
+      const affected = await SeedStock.find({
+        seed: seedId,
+        status: "AVAILABLE",
+      }).limit(qty);
+
+      if (affected.length < qty) {
+        return res.status(400).json({ message: "Not enough available" });
+      }
+
+      await SeedStock.updateMany(
+        { _id: { $in: affected.map(s => s._id) } },
+        { $set: { status: "REPLACED" } }
+      );
+
+      await ActivityLog.create({
+        user,
+        role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: qty,
+        process: "REPLACED",
+      });
+
+      return res.json({ message: "Replaced successfully" });
+    }
+
+    return res.status(400).json({ message: "Unknown action" });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 }

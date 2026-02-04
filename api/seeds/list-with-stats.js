@@ -3,16 +3,23 @@ import SeedStock from "../../models/SeedStock.js";
 import Seed from "../../models/Seed.js";
 
 export default async function handler(req, res) {
+
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
+
     await dbConnect();
 
-    const planted = await SeedStock.aggregate([
+    const stats = await SeedStock.aggregate([
+
+      // only records with block+lot
       {
-        $match: { status: "INSERT-IN" },
+        $match: {
+          block: { $ne: null },
+          lot: { $ne: null },
+        },
       },
 
       {
@@ -22,7 +29,26 @@ export default async function handler(req, res) {
             block: "$block",
             lot: "$lot",
           },
-          available: { $sum: 1 },
+
+          available: {
+            $sum: { $cond: [{ $eq: ["$status", "AVAILABLE"] }, 1, 0] },
+          },
+
+          distributed: {
+            $sum: { $cond: [{ $eq: ["$status", "STOCK-OUT"] }, 1, 0] },
+          },
+
+          mortality: {
+            $sum: { $cond: [{ $eq: ["$status", "MORTALITY"] }, 1, 0] },
+          },
+
+          replaced: {
+            $sum: { $cond: [{ $eq: ["$status", "REPLACED"] }, 1, 0] },
+          },
+
+          stocks: {
+            $sum: 1,
+          },
         },
       },
 
@@ -38,29 +64,28 @@ export default async function handler(req, res) {
       { $unwind: "$seed" },
 
       {
-        $replaceRoot: {
-          newRoot: {
-            $mergeObjects: [
-              "$seed",
-              {
-                block: "$_id.block",
-                lot: "$_id.lot",
-                available: "$available",
-                distributed: 0,
-                mortality: 0,
-                stocks: 0,
-                replaced: 0,
-                total: "$available",
-              },
-            ],
-          },
+        $project: {
+          _id: 0,
+          seedId: "$seed._id",
+          name: "$seed.name",
+          tag: "$seed.tag",
+          block: "$_id.block",
+          lot: "$_id.lot",
+          available: 1,
+          distributed: 1,
+          mortality: 1,
+          replaced: 1,
+          stocks: 1,
+          total: "$stocks",
         },
       },
+
     ]);
 
-    return res.json(planted);
+    return res.json(stats);
+
   } catch (err) {
     console.error("LIST ERROR:", err);
-    return res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: err.message });
   }
 }
