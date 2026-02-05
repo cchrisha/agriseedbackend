@@ -93,42 +93,46 @@ export default async function handler(req, res) {
     if (action === "AVAILABLE") {
 
       const qty = Number(quantity);
-
       if (!qty || block == null || lot == null)
-        return res.status(400).json({ message:"Missing fields" });
+        return res.status(400).json({ message: "Missing fields" });
 
-      const planted = await Lot.findOne({
-        block:Number(block),
-        lot:Number(lot),
-        seed: seedId
+      const plantedLot = await Lot.findOne({
+        block: Number(block),
+        lot: Number(lot),
+        seed: seedId,
       });
 
-      if (!planted)
-        return res.status(400).json({ message:"Seed not planted" });
+      if (!plantedLot)
+        return res.status(400).json({ message: "Seed not planted in this lot" });
 
       const warehouse = await SeedStock.find({
         seed: seedId,
-        status:"STOCK-IN"
+        status: "STOCK-IN",
       }).limit(qty);
 
       if (warehouse.length < qty)
-        return res.status(400).json({ message:"Not enough stock" });
+        return res.status(400).json({ message: "Not enough stock" });
+
+      // tag parts
+      const d = new Date(seed.datePlanted);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const batch = `B${month}`;
 
       const last = await SeedStock.findOne({
         seed: seedId,
-        stockNo:{ $exists:true }
-      }).sort({ stockNo:-1 });
+        stockNo: { $exists: true },
+      }).sort({ stockNo: -1 });
 
       let start = last ? last.stockNo + 1 : 1;
 
       for (const s of warehouse) {
-
+        s.stockNo = start;
+        s.tag = `${seed.tag}-${year}-${month}-${day}-${batch}-${start}`;
         s.status = "AVAILABLE";
         s.block = Number(block);
         s.lot = Number(lot);
-        s.stockNo = start;
-        s.tag = `${seed.tag}-${start}`;
-
         await s.save();
         start++;
       }
@@ -142,7 +146,7 @@ export default async function handler(req, res) {
         process: "AVAILABLE",
       });
 
-      return res.json({ message:"Moved to lot" });
+      return res.json({ message: "Seedlings moved to lot" });
     }
 
     // =====================================================
@@ -207,7 +211,7 @@ export default async function handler(req, res) {
 
       const warehouse = await SeedStock.find({
         seed: seedId,
-        status:"STOCK-IN"
+        status:"MORTALITY"
       }).limit(qty);
 
       if (warehouse.length < qty)
