@@ -8,13 +8,9 @@ const SeedStockSchema = new mongoose.Schema(
       required: true,
     },
 
-    stockNo: {
-      type: Number,
-    },
+    stockNo: Number,
 
-    tag: {
-      type: String,
-    },
+    tag: String,
 
     status: {
       type: String,
@@ -22,20 +18,20 @@ const SeedStockSchema = new mongoose.Schema(
       default: "STOCK-IN",
     },
 
-    block: {
-      type: Number,
-      default: null,
-    },
-
-    lot: {
-      type: Number,
-      default: null,
-    },
+    block: Number,
+    lot: Number,
   },
   { timestamps: true }
 );
 
-SeedStockSchema.index({ seed: 1, stockNo: 1 }, { unique: true });
+// unique ONLY when stockNo exists
+SeedStockSchema.index(
+  { seed: 1, stockNo: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { stockNo: { $exists: true } }
+  }
+);
 
 export default mongoose.models.SeedStock ||
   mongoose.model("SeedStock", SeedStockSchema);
