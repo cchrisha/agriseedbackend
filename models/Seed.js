@@ -19,11 +19,9 @@ const SeedSchema = new mongoose.Schema(
       required: true,
     },
 
-    tag: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+  tag: {
+    type: String,
+  },
 
     isDeleted: {
       type: Boolean,

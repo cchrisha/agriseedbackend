@@ -28,11 +28,6 @@ const ActivityLogSchema = new mongoose.Schema(
       enum: [
         "CREATED",
         "DELETED",
-        "STOCK-IN",
-        "AVAILABLE",
-        "STOCK-OUT",
-        "MORTALITY",
-        "REPLACED",
       ],
     },
   },

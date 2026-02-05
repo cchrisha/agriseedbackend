@@ -10,25 +10,27 @@ export default async function handler(req, res) {
 
   try {
 
+    // ===============================
+    // CREATE SEED
+    // ===============================
     if (req.method === "POST") {
 
       const { name, variety, datePlanted, address } = req.body;
 
-      if (!name || !datePlanted || !address) {
+      if (!name || !datePlanted || !address)
         return res.status(400).json({ message: "Missing fields" });
-      }
 
-      const seedCode = name.substring(0, 3).toUpperCase();
-      const d = new Date(datePlanted);
+      const seedCode = name.trim().substring(0, 3).toUpperCase();
+      const tag = `PRB-${seedCode}`;
 
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
+      // 🚨 PREVENT DUPLICATE NAME
+      const exists = await Seed.findOne({
+        name: new RegExp(`^${name}$`, "i"),
+        isDeleted: false,
+      });
 
-      const count = await Seed.countDocuments();
-      const batch = String(count + 1).padStart(2, "0");
-
-      const tag = `PRB-${seedCode}-${year}-${month}-${day}-B${batch}`;
+      if (exists)
+        return res.status(400).json({ message: "Seed already exists" });
 
       const seed = await Seed.create({
         name,
@@ -52,9 +54,15 @@ export default async function handler(req, res) {
       return res.status(201).json(seed);
     }
 
+    // ===============================
+    // SOFT DELETE
+    // ===============================
     if (req.method === "DELETE") {
 
       const { seedId } = req.body;
+
+      if (!seedId)
+        return res.status(400).json({ message: "seedId required" });
 
       const seed = await Seed.findById(seedId);
       if (!seed) return res.status(404).json({ message: "Seed not found" });
@@ -73,13 +81,13 @@ export default async function handler(req, res) {
         process: "DELETED",
       });
 
-      return res.json({ message: "Seed soft deleted" });
+      return res.json({ message: "Seed deleted" });
     }
 
-    res.status(405).json({ message: "Method not allowed" });
+    return res.status(405).json({ message: "Method not allowed" });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: err.message });
+    console.error("SEED ERROR:", err);
+    return res.status(500).json({ message: err.message });
   }
 }
