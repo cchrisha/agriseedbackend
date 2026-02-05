@@ -25,30 +25,24 @@ export default async function handler(req, res) {
     const role = req.headers.role || "admin";
 
     // =====================================================
-    // 🌱 STOCK-IN (WAREHOUSE ONLY)
+    // 🌱 STOCK-IN (WAREHOUSE)
     // =====================================================
 
     if (action === "STOCK-IN") {
 
       const qty = Number(quantity);
-
       if (!qty || qty <= 0)
         return res.status(400).json({ message: "Invalid quantity" });
 
-      const stocks = [];
-
+      const docs = [];
       for (let i = 0; i < qty; i++) {
-        stocks.push({
-          seed: seedId,
-          status: "STOCK-IN",
-        });
+        docs.push({ seed: seedId, status: "STOCK-IN" });
       }
 
-      await SeedStock.insertMany(stocks);
+      await SeedStock.insertMany(docs);
 
       await ActivityLog.create({
-        user,
-        role,
+        user, role,
         seed: seed._id,
         seedName: seed.name,
         seedTag: seed.tag,
@@ -60,7 +54,7 @@ export default async function handler(req, res) {
     }
 
     // =====================================================
-    // 🧩 ASSIGN SEED TO LOT (PLANT)
+    // 🧩 ASSIGN LOT (PLANT)
     // =====================================================
 
     if (action === "ASSIGN-LOT") {
@@ -90,8 +84,7 @@ export default async function handler(req, res) {
       );
 
       await ActivityLog.create({
-        user,
-        role,
+        user, role,
         seed: seed._id,
         seedName: seed.name,
         seedTag: seed.tag,
@@ -109,7 +102,6 @@ export default async function handler(req, res) {
     if (action === "AVAILABLE") {
 
       const qty = Number(quantity);
-
       if (!qty || block == null || lot == null)
         return res.status(400).json({ message: "Missing fields" });
 
@@ -130,18 +122,13 @@ export default async function handler(req, res) {
       if (warehouse.length < qty)
         return res.status(400).json({ message: "Not enough stock" });
 
-      // ================= TAG PARTS =================
-
+      // tag parts
       const d = new Date(seed.datePlanted);
-
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
-
-      // batch = month
       const batch = `B${month}`;
 
-      // last running number
       const last = await SeedStock.findOne({
         seed: seedId,
         stockNo: { $exists: true },
@@ -149,25 +136,18 @@ export default async function handler(req, res) {
 
       let start = last ? last.stockNo + 1 : 1;
 
-      // ================= APPLY =================
-
       for (const s of warehouse) {
-
         s.stockNo = start;
-
         s.tag = `${seed.tag}-${year}-${month}-${day}-${batch}-${start}`;
-
         s.status = "AVAILABLE";
         s.block = Number(block);
         s.lot = Number(lot);
-
         await s.save();
         start++;
       }
 
       await ActivityLog.create({
-        user,
-        role,
+        user, role,
         seed: seed._id,
         seedName: seed.name,
         seedTag: seed.tag,
@@ -176,6 +156,115 @@ export default async function handler(req, res) {
       });
 
       return res.json({ message: "Seedlings moved to lot" });
+    }
+
+    // =====================================================
+    // 📦 DISTRIBUTE (FROM AVAILABLE)
+    // =====================================================
+
+    if (action === "DISTRIBUTE") {
+
+      const qty = Number(quantity);
+      if (!qty || block == null || lot == null)
+        return res.status(400).json({ message: "Missing fields" });
+
+      const available = await SeedStock.find({
+        seed: seedId,
+        status: "AVAILABLE",
+        block: Number(block),
+        lot: Number(lot),
+      }).limit(qty);
+
+      if (available.length < qty)
+        return res.status(400).json({ message: "Not enough available" });
+
+      for (const s of available) {
+        s.status = "STOCK-OUT";
+        await s.save();
+      }
+
+      await ActivityLog.create({
+        user, role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: qty,
+        process: "DISTRIBUTE",
+      });
+
+      return res.json({ message: "Seedlings distributed" });
+    }
+
+    // =====================================================
+    // ☠ MORTALITY (FROM AVAILABLE)
+    // =====================================================
+
+    if (action === "MORTALITY") {
+
+      const qty = Number(quantity);
+      if (!qty || block == null || lot == null)
+        return res.status(400).json({ message: "Missing fields" });
+
+      const available = await SeedStock.find({
+        seed: seedId,
+        status: "AVAILABLE",
+        block: Number(block),
+        lot: Number(lot),
+      }).limit(qty);
+
+      if (available.length < qty)
+        return res.status(400).json({ message: "Not enough available" });
+
+      for (const s of available) {
+        s.status = "MORTALITY";
+        await s.save();
+      }
+
+      await ActivityLog.create({
+        user, role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: qty,
+        process: "MORTALITY",
+      });
+
+      return res.json({ message: "Marked mortality" });
+    }
+
+    // =====================================================
+    // 🔁 REPLACED (FROM STOCK-IN ONLY)
+    // =====================================================
+
+    if (action === "REPLACED") {
+
+      const qty = Number(quantity);
+      if (!qty)
+        return res.status(400).json({ message: "Missing quantity" });
+
+      const warehouse = await SeedStock.find({
+        seed: seedId,
+        status: "STOCK-IN",
+      }).limit(qty);
+
+      if (warehouse.length < qty)
+        return res.status(400).json({ message: "Not enough warehouse stock" });
+
+      for (const s of warehouse) {
+        s.status = "REPLACED";
+        await s.save();
+      }
+
+      await ActivityLog.create({
+        user, role,
+        seed: seed._id,
+        seedName: seed.name,
+        seedTag: seed.tag,
+        quantity: qty,
+        process: "REPLACED",
+      });
+
+      return res.json({ message: "Seedlings replaced" });
     }
 
     return res.status(400).json({ message: "Unknown action" });
