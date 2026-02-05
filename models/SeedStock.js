@@ -21,7 +21,7 @@ const SeedStockSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["STOCK-IN", "AVAILABLE", "STOCK-OUT", "MORTALITY", "REPLACED"],
+      enum: ["PLANTED","STOCK-IN", "AVAILABLE", "STOCK-OUT", "MORTALITY", "REPLACED"],
       default: "STOCK-IN",
     },
 
