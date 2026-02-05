@@ -4,10 +4,12 @@ import SeedStock from "../../models/SeedStock.js";
 import Lot from "../../models/Lot.js";
 
 export default async function handler(req, res) {
+
   if (req.method !== "GET")
     return res.status(405).json({ message: "Method not allowed" });
 
   try {
+
     await dbConnect();
 
     // ===============================
@@ -25,13 +27,12 @@ export default async function handler(req, res) {
     const lots = await Lot.find().populate("seed");
 
     // ===============================
-    // AVAILABLE PER LOT
+    // PER LOT STATS
     // ===============================
 
-    const availableStats = await SeedStock.aggregate([
+    const lotStats = await SeedStock.aggregate([
       {
         $match: {
-          status: "AVAILABLE",
           block: { $ne: null },
           lot: { $ne: null },
         },
@@ -43,16 +44,31 @@ export default async function handler(req, res) {
             block: "$block",
             lot: "$lot",
           },
-          available: { $sum: 1 },
+
+          available: {
+            $sum: { $cond: [{ $eq: ["$status", "AVAILABLE"] }, 1, 0] },
+          },
+
+          distributed: {
+            $sum: { $cond: [{ $eq: ["$status", "STOCK-OUT"] }, 1, 0] },
+          },
+
+          mortality: {
+            $sum: { $cond: [{ $eq: ["$status", "MORTALITY"] }, 1, 0] },
+          },
+
+          replaced: {
+            $sum: { $cond: [{ $eq: ["$status", "REPLACED"] }, 1, 0] },
+          },
         },
       },
     ]);
 
     // ===============================
-    // WAREHOUSE STOCKS (GLOBAL)
+    // GLOBAL WAREHOUSE STOCKS
     // ===============================
 
-    const stockStats = await SeedStock.aggregate([
+    const warehouse = await SeedStock.aggregate([
       {
         $match: { status: "STOCK-IN" },
       },
@@ -65,31 +81,35 @@ export default async function handler(req, res) {
     ]);
 
     // ===============================
-    // MERGE LOTS + STATS
+    // MERGE EVERYTHING
     // ===============================
 
     const mergedLots = lots.map(l => {
-      const avail = availableStats.find(
-        a =>
-          String(a._id.seed) === String(l.seed?._id) &&
-          a._id.block === l.block &&
-          a._id.lot === l.lot
+
+      const stat = lotStats.find(
+        s =>
+          String(s._id.seed) === String(l.seed?._id) &&
+          s._id.block === l.block &&
+          s._id.lot === l.lot
       );
 
-      const stock = stockStats.find(
-        s => String(s._id) === String(l.seed?._id)
+      const stock = warehouse.find(
+        w => String(w._id) === String(l.seed?._id)
       );
 
       return {
         _id: l._id,
         block: l.block,
         lot: l.lot,
-        seed: l.seed || null,
+        seed: l.seed,
 
         // PER LOT
-        available: avail?.available || 0,
+        available: stat?.available || 0,
+        distributed: stat?.distributed || 0,
+        mortality: stat?.mortality || 0,
+        replaced: stat?.replaced || 0,
 
-        // GLOBAL PER SEED
+        // GLOBAL
         stocks: stock?.stocks || 0,
       };
     });
