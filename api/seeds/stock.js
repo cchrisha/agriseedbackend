@@ -189,7 +189,7 @@ export default async function handler(req, res) {
         seedName: seed.name,
         seedTag: seed.tag,
         quantity: qty,
-        process: "DISTRIBUTE",
+        process: "STOCK-OUT",
       });
 
       return res.json({ message: "Seedlings distributed" });
