@@ -21,13 +21,14 @@ export default async function handler(req, res) {
     });
 
     // ===============================
-    // LOTS
+    // LOTS + SEED INFO
     // ===============================
 
     const lots = await Lot.find().populate("seed");
 
     // ===============================
     // PER LOT STATS
+    // available = AVAILABLE + REPLACED
     // ===============================
 
     const lotStats = await SeedStock.aggregate([
@@ -46,7 +47,18 @@ export default async function handler(req, res) {
           },
 
           available: {
-            $sum: { $cond: [{ $eq: ["$status", "AVAILABLE"] }, 1, 0] },
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: ["$status", "AVAILABLE"] },
+                    { $eq: ["$status", "REPLACED"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
 
           distributed: {
@@ -65,7 +77,7 @@ export default async function handler(req, res) {
     ]);
 
     // ===============================
-    // GLOBAL WAREHOUSE STOCKS
+    // GLOBAL WAREHOUSE STOCKS (STOCK-IN)
     // ===============================
 
     const warehouse = await SeedStock.aggregate([
