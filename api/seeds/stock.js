@@ -1,171 +1,109 @@
 import dbConnect from "../../lib/db.js";
 import Seed from "../../models/Seed.js";
 import SeedStock from "../../models/SeedStock.js";
-import ActivityLog from "../../models/ActivityLog.js";
 import Lot from "../../models/Lot.js";
 
 export default async function handler(req, res) {
 
- if (req.method !== "POST")
-  return res.status(405).json({ message: "Method not allowed" });
+  if (req.method !== "GET")
+    return res.status(405).json({ message: "Method not allowed" });
 
- try {
+  try {
 
-  await dbConnect();
+    await dbConnect();
 
-  const { seedId, action, block, lot, quantity } = req.body;
+    // ===============================
+    // ACTIVE SEEDS
+    // ===============================
 
-  if (!seedId || !action)
-    return res.status(400).json({ message: "Invalid input" });
-
-  const seed = await Seed.findById(seedId);
-  if (!seed) return res.status(404).json({ message: "Seed not found" });
-
-  const user = req.headers.user || "System";
-  const role = req.headers.role || "admin";
-
-  // =====================================================
-  // 🌱 STOCK-IN (WAREHOUSE ONLY)
-  // =====================================================
-
-  if (action === "STOCK-IN") {
-
-    const qty = Number(quantity);
-
-    if (!qty || qty <= 0)
-      return res.status(400).json({ message: "Invalid quantity" });
-
-    const stocks = [];
-
-    for (let i = 0; i < qty; i++) {
-      stocks.push({
-        seed: seedId,
-        status: "STOCK-IN",
-      });
-    }
-
-    await SeedStock.insertMany(stocks);
-
-    await ActivityLog.create({
-      user,
-      role,
-      seed: seed._id,
-      seedName: seed.name,
-      seedTag: seed.tag,
-      quantity: qty,
-      process: "STOCK-IN",
+    const seeds = await Seed.find({
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
     });
 
-    return res.json({ message: "Stock added successfully" });
-  }
+    // ===============================
+    // LOTS
+    // ===============================
 
-  // =====================================================
-  // 🧩 ASSIGN SEED TO LOT (PLANT)
-  // =====================================================
+    const lots = await Lot.find().populate("seed");
 
-  if (action === "ASSIGN-LOT") {
+    // ===============================
+    // LOT STATS (AVAILABLE PER BLOCK+LOT)
+    // ===============================
 
-    if (block == null || lot == null)
-      return res.status(400).json({ message: "Block & Lot required" });
-
-    const existing = await Lot.findOne({
-      block:Number(block),
-      lot:Number(lot),
-    });
-
-    if (existing?.seed)
-      return res.status(400).json({ message:"Lot already planted" });
-
-    const planted = await Lot.findOneAndUpdate(
-      { block:Number(block), lot:Number(lot) },
+    const lotStats = await SeedStock.aggregate([
       {
-        seed: seedId,
-        available: 0,
-        distributed: 0,
-        mortality: 0,
-        replaced: 0,
-        stocks: 0,
+        $match: {
+          status: "AVAILABLE",
+          block: { $ne: null },
+          lot: { $ne: null },
+        },
       },
-      { upsert:true, new:true }
-    );
+      {
+        $group: {
+          _id: {
+            seed: "$seed",
+            block: "$block",
+            lot: "$lot",
+          },
+          available: { $sum: 1 },
+        },
+      },
+    ]);
 
-    await ActivityLog.create({
-      user,
-      role,
-      seed: seed._id,
-      seedName: seed.name,
-      seedTag: seed.tag,
-      quantity: 0,
-      process: "PLANTED",
+    // ===============================
+    // WAREHOUSE STOCKS (GLOBAL PER SEED)
+    // ===============================
+
+    const warehouse = await SeedStock.aggregate([
+      {
+        $match: { status: "STOCK-IN" },
+      },
+      {
+        $group: {
+          _id: "$seed",
+          stocks: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // ===============================
+    // MERGE EVERYTHING
+    // ===============================
+
+    const mergedLots = lots.map(l => {
+
+      const avail = lotStats.find(
+        s =>
+          String(s._id.seed) === String(l.seed?._id) &&
+          s._id.block === l.block &&
+          s._id.lot === l.lot
+      );
+
+      const stock = warehouse.find(
+        w => String(w._id) === String(l.seed?._id)
+      );
+
+      return {
+        _id: l._id,
+        block: l.block,
+        lot: l.lot,
+        seed: l.seed,
+
+        // PER LOT
+        available: avail?.available || 0,
+
+        // GLOBAL PER SEED
+        stocks: stock?.stocks || 0,
+      };
     });
 
-    return res.json({ message:"Seed planted", data: planted });
+    return res.json({
+      seeds,
+      lots: mergedLots,
+    });
+
+  } catch (err) {
+    console.error("LIST ERROR:", err);
+    return res.status(500).json({ message: err.message });
   }
-
-  // =====================================================
-  // 🌿 AVAILABLE (MOVE FROM WAREHOUSE → LOT)
-  // =====================================================
-
-  if (action === "AVAILABLE") {
-
-    const qty = Number(quantity);
-
-    if (!qty || block == null || lot == null)
-      return res.status(400).json({ message:"Missing fields" });
-
-    const plantedLot = await Lot.findOne({
-      block:Number(block),
-      lot:Number(lot),
-      seed: seedId
-    });
-
-    if (!plantedLot)
-      return res.status(400).json({ message:"Seed not planted in this lot" });
-
-    const warehouse = await SeedStock.find({
-      seed: seedId,
-      status: "STOCK-IN"
-    }).limit(qty);
-
-    if (warehouse.length < qty)
-      return res.status(400).json({ message:"Not enough stock" });
-
-    const last = await SeedStock.findOne({
-      seed: seedId,
-      stockNo:{ $exists:true }
-    }).sort({ stockNo:-1 });
-
-    let start = last ? last.stockNo + 1 : 1;
-
-    for (const s of warehouse) {
-
-      s.stockNo = start;
-      s.tag = `${seed.tag}-${start}`;
-      s.status = "AVAILABLE";
-      s.block = Number(block);
-      s.lot = Number(lot);
-
-      await s.save();
-      start++;
-    }
-
-    await ActivityLog.create({
-      user,
-      role,
-      seed: seed._id,
-      seedName: seed.name,
-      seedTag: seed.tag,
-      quantity: qty,
-      process: "AVAILABLE",
-    });
-
-    return res.json({ message:"Seedlings moved to lot" });
-  }
-
-  return res.status(400).json({ message:"Unknown action" });
-
- } catch (err) {
-  console.error("STOCK ERROR:", err);
-  return res.status(500).json({ message: err.message });
- }
 }
