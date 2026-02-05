@@ -21,14 +21,14 @@ export default async function handler(req, res) {
     });
 
     // ===============================
-    // LOTS + SEED INFO
+    // LOTS
     // ===============================
 
     const lots = await Lot.find().populate("seed");
 
     // ===============================
     // PER LOT STATS
-    // available = AVAILABLE + REPLACED
+    // AVAILABLE = AVAILABLE + REPLACED
     // ===============================
 
     const lotStats = await SeedStock.aggregate([
@@ -46,19 +46,15 @@ export default async function handler(req, res) {
             lot: "$lot",
           },
 
+          // AVAILABLE + REPLACED
           available: {
             $sum: {
               $cond: [
-                {
-                  $or: [
-                    { $eq: ["$status", "AVAILABLE"] },
-                    { $eq: ["$status", "REPLACED"] },
-                  ],
-                },
+                { $in: ["$status", ["AVAILABLE", "REPLACED"]] },
                 1,
-                0,
-              ],
-            },
+                0
+              ]
+            }
           },
 
           distributed: {
@@ -77,7 +73,7 @@ export default async function handler(req, res) {
     ]);
 
     // ===============================
-    // GLOBAL WAREHOUSE STOCKS (STOCK-IN)
+    // GLOBAL WAREHOUSE STOCKS
     // ===============================
 
     const warehouse = await SeedStock.aggregate([
@@ -121,7 +117,7 @@ export default async function handler(req, res) {
         mortality: stat?.mortality || 0,
         replaced: stat?.replaced || 0,
 
-        // GLOBAL
+        // GLOBAL PER SEED
         stocks: stock?.stocks || 0,
       };
     });
