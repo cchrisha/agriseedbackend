@@ -71,7 +71,7 @@ export default async function handler(req, res) {
   ]);
 
   // ===============================
-  // FINAL MERGE (BUSINESS LOGIC)
+  // FINAL MERGE
   // ===============================
 
   const mergedLots = lots.map(l => {
@@ -88,7 +88,6 @@ export default async function handler(req, res) {
     );
 
     const rawAvailable = s?.available || 0;
-    const rawMortality = s?.mortality || 0;
     const rawReplaced = s?.replaced || 0;
 
     return {
@@ -97,15 +96,15 @@ export default async function handler(req, res) {
       lot: l.lot,
       seed: l.seed,
 
-      // ✅ replaced adds back to available
+      // ✅ AVAILABLE + REPLACED
       available: rawAvailable + rawReplaced,
 
-      // ✅ mortality reduced by replaced
-      mortality: Math.max(rawMortality - rawReplaced, 0),
-
+      // ✅ DOCUMENTATION COUNTS
+      mortality: s?.mortality || 0,
       distributed: s?.distributed || 0,
       replaced: rawReplaced,
 
+      // ✅ GLOBAL
       stocks: w?.stocks || 0,
     };
   });
