@@ -162,7 +162,7 @@ export default async function handler(req, res) {
     // 📦 DISTRIBUTE (FROM AVAILABLE)
     // =====================================================
 
-    if (action === "STOCK-OUT") {
+    if (action === "DISTRIBUTE") {
 
       const qty = Number(quantity);
       if (!qty || block == null || lot == null)
