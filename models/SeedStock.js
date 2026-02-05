@@ -10,7 +10,6 @@ const SeedStockSchema = new mongoose.Schema(
 
     stockNo: {
       type: Number,
-      required: true,
     },
 
     tag: {
