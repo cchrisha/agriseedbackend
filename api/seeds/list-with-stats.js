@@ -5,130 +5,118 @@ import Lot from "../../models/Lot.js";
 
 export default async function handler(req, res) {
 
-  if (req.method !== "GET")
-    return res.status(405).json({ message: "Method not allowed" });
+ if (req.method !== "GET")
+  return res.status(405).json({ message: "Method not allowed" });
 
-  try {
+ try {
 
-    await dbConnect();
+  await dbConnect();
 
-    // ===============================
-    // ACTIVE SEEDS
-    // ===============================
+  const seeds = await Seed.find({
+    $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+  });
 
-    const seeds = await Seed.find({
-      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
-    });
+  const lots = await Lot.find().populate("seed");
 
-    // ===============================
-    // LOTS
-    // ===============================
+  // ===============================
+  // PER LOT RAW COUNTS
+  // ===============================
 
-    const lots = await Lot.find().populate("seed");
+  const stats = await SeedStock.aggregate([
+    {
+      $match: {
+        block: { $ne: null },
+        lot: { $ne: null },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          seed: "$seed",
+          block: "$block",
+          lot: "$lot",
+        },
 
-    // ===============================
-    // PER LOT STATS
-    // AVAILABLE = AVAILABLE + REPLACED
-    // ===============================
+        available: {
+          $sum: { $cond: [{ $eq: ["$status", "AVAILABLE"] }, 1, 0] },
+        },
 
-    const lotStats = await SeedStock.aggregate([
-      {
-        $match: {
-          block: { $ne: null },
-          lot: { $ne: null },
+        distributed: {
+          $sum: { $cond: [{ $eq: ["$status", "STOCK-OUT"] }, 1, 0] },
+        },
+
+        mortality: {
+          $sum: { $cond: [{ $eq: ["$status", "MORTALITY"] }, 1, 0] },
+        },
+
+        replaced: {
+          $sum: { $cond: [{ $eq: ["$status", "REPLACED"] }, 1, 0] },
         },
       },
-      {
-        $group: {
-          _id: {
-            seed: "$seed",
-            block: "$block",
-            lot: "$lot",
-          },
+    },
+  ]);
 
-          // AVAILABLE + REPLACED
-          available: {
-            $sum: {
-              $cond: [
-                { $in: ["$status", ["AVAILABLE", "REPLACED"]] },
-                1,
-                0
-              ]
-            }
-          },
+  // ===============================
+  // WAREHOUSE
+  // ===============================
 
-          distributed: {
-            $sum: { $cond: [{ $eq: ["$status", "STOCK-OUT"] }, 1, 0] },
-          },
-
-          mortality: {
-            $sum: { $cond: [{ $eq: ["$status", "MORTALITY"] }, 1, 0] },
-          },
-
-          replaced: {
-            $sum: { $cond: [{ $eq: ["$status", "REPLACED"] }, 1, 0] },
-          },
-        },
+  const warehouse = await SeedStock.aggregate([
+    { $match: { status: "STOCK-IN" } },
+    {
+      $group: {
+        _id: "$seed",
+        stocks: { $sum: 1 },
       },
-    ]);
+    },
+  ]);
 
-    // ===============================
-    // GLOBAL WAREHOUSE STOCKS
-    // ===============================
+  // ===============================
+  // FINAL MERGE (BUSINESS LOGIC)
+  // ===============================
 
-    const warehouse = await SeedStock.aggregate([
-      {
-        $match: { status: "STOCK-IN" },
-      },
-      {
-        $group: {
-          _id: "$seed",
-          stocks: { $sum: 1 },
-        },
-      },
-    ]);
+  const mergedLots = lots.map(l => {
 
-    // ===============================
-    // MERGE EVERYTHING
-    // ===============================
+    const s = stats.find(
+      x =>
+        String(x._id.seed) === String(l.seed?._id) &&
+        x._id.block === l.block &&
+        x._id.lot === l.lot
+    );
 
-    const mergedLots = lots.map(l => {
+    const w = warehouse.find(
+      x => String(x._id) === String(l.seed?._id)
+    );
 
-      const stat = lotStats.find(
-        s =>
-          String(s._id.seed) === String(l.seed?._id) &&
-          s._id.block === l.block &&
-          s._id.lot === l.lot
-      );
+    const rawAvailable = s?.available || 0;
+    const rawMortality = s?.mortality || 0;
+    const rawReplaced = s?.replaced || 0;
 
-      const stock = warehouse.find(
-        w => String(w._id) === String(l.seed?._id)
-      );
+    return {
+      _id: l._id,
+      block: l.block,
+      lot: l.lot,
+      seed: l.seed,
 
-      return {
-        _id: l._id,
-        block: l.block,
-        lot: l.lot,
-        seed: l.seed,
+      // ✅ replaced adds back to available
+      available: rawAvailable + rawReplaced,
 
-        // PER LOT
-        available: stat?.available || 0,
-        distributed: stat?.distributed || 0,
-        mortality: stat?.mortality || 0,
-        replaced: stat?.replaced || 0,
+      // ✅ mortality reduced by replaced
+      mortality: Math.max(rawMortality - rawReplaced, 0),
 
-        // GLOBAL PER SEED
-        stocks: stock?.stocks || 0,
-      };
-    });
+      distributed: s?.distributed || 0,
+      replaced: rawReplaced,
 
-    return res.json({
-      seeds,
-      lots: mergedLots,
-    });
+      stocks: w?.stocks || 0,
+    };
+  });
 
-  } catch (err) {
-    console.error("LIST ERROR:", err);
-    return res.status(500).json({ message: err.message });
-  }
+  return res.json({
+    seeds,
+    lots: mergedLots,
+  });
+
+ } catch (err) {
+  console.error("LIST ERROR:", err);
+  return res.status(500).json({ message: err.message });
+ }
 }
