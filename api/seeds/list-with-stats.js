@@ -4,12 +4,10 @@ import SeedStock from "../../models/SeedStock.js";
 import Lot from "../../models/Lot.js";
 
 export default async function handler(req, res) {
-
   if (req.method !== "GET")
     return res.status(405).json({ message: "Method not allowed" });
 
   try {
-
     await dbConnect();
 
     // ===============================
@@ -27,10 +25,10 @@ export default async function handler(req, res) {
     const lots = await Lot.find().populate("seed");
 
     // ===============================
-    // LOT STATS (AVAILABLE PER BLOCK+LOT)
+    // AVAILABLE PER LOT
     // ===============================
 
-    const lotStats = await SeedStock.aggregate([
+    const availableStats = await SeedStock.aggregate([
       {
         $match: {
           status: "AVAILABLE",
@@ -51,10 +49,10 @@ export default async function handler(req, res) {
     ]);
 
     // ===============================
-    // WAREHOUSE STOCKS (GLOBAL PER SEED)
+    // WAREHOUSE STOCKS (GLOBAL)
     // ===============================
 
-    const warehouse = await SeedStock.aggregate([
+    const stockStats = await SeedStock.aggregate([
       {
         $match: { status: "STOCK-IN" },
       },
@@ -67,27 +65,26 @@ export default async function handler(req, res) {
     ]);
 
     // ===============================
-    // MERGE EVERYTHING
+    // MERGE LOTS + STATS
     // ===============================
 
     const mergedLots = lots.map(l => {
-
-      const avail = lotStats.find(
-        s =>
-          String(s._id.seed) === String(l.seed?._id) &&
-          s._id.block === l.block &&
-          s._id.lot === l.lot
+      const avail = availableStats.find(
+        a =>
+          String(a._id.seed) === String(l.seed?._id) &&
+          a._id.block === l.block &&
+          a._id.lot === l.lot
       );
 
-      const stock = warehouse.find(
-        w => String(w._id) === String(l.seed?._id)
+      const stock = stockStats.find(
+        s => String(s._id) === String(l.seed?._id)
       );
 
       return {
         _id: l._id,
         block: l.block,
         lot: l.lot,
-        seed: l.seed,
+        seed: l.seed || null,
 
         // PER LOT
         available: avail?.available || 0,
