@@ -203,7 +203,7 @@ if (action === "MORTALITY") {
     // documentation (NO stockNo!)
     await SeedStock.create({
       seed: seedId,
-      status: "MORTALITY",
+      status: "MORTALITY-DOC",
       block: Number(block),
       lot: Number(lot),
     });
