@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const lots = await Lot.find().populate("seed");
 
     // ===============================
-    // PER LOT PHYSICAL COUNTS (SeedStock)
+    // PHYSICAL COUNTS (SeedStock)
     // ===============================
 
     const stats = await SeedStock.aggregate([
@@ -62,13 +62,11 @@ export default async function handler(req, res) {
     ]);
 
     // ===============================
-    // REPLACED DOCUMENTATION (ActivityLog)
+    // REPLACED LOGS (ActivityLog)
     // ===============================
 
     const replacedLogs = await ActivityLog.aggregate([
-      {
-        $match: { process: "REPLACED" },
-      },
+      { $match: { process: "REPLACED" } },
       {
         $group: {
           _id: {
@@ -82,7 +80,25 @@ export default async function handler(req, res) {
     ]);
 
     // ===============================
-    // WAREHOUSE (STOCK-IN)
+    // MORTALITY LOGS (ActivityLog – history only)
+    // ===============================
+
+    const mortalityLogs = await ActivityLog.aggregate([
+      { $match: { process: "MORTALITY" } },
+      {
+        $group: {
+          _id: {
+            seed: "$seed",
+            block: "$block",
+            lot: "$lot",
+          },
+          total: { $sum: "$quantity" },
+        },
+      },
+    ]);
+
+    // ===============================
+    // WAREHOUSE
     // ===============================
 
     const warehouse = await SeedStock.aggregate([
@@ -101,18 +117,22 @@ export default async function handler(req, res) {
 
     const mergedLots = lots.map(l => {
 
-      const s = stats.find(
-        x =>
-          String(x._id.seed) === String(l.seed?._id) &&
-          x._id.block === l.block &&
-          x._id.lot === l.lot
+      const s = stats.find(x =>
+        String(x._id.seed) === String(l.seed?._id) &&
+        x._id.block === l.block &&
+        x._id.lot === l.lot
       );
 
-      const r = replacedLogs.find(
-        x =>
-          String(x._id.seed) === String(l.seed?._id) &&
-          x._id.block === l.block &&
-          x._id.lot === l.lot
+      const r = replacedLogs.find(x =>
+        String(x._id.seed) === String(l.seed?._id) &&
+        x._id.block === l.block &&
+        x._id.lot === l.lot
+      );
+
+      const m = mortalityLogs.find(x =>
+        String(x._id.seed) === String(l.seed?._id) &&
+        x._id.block === l.block &&
+        x._id.lot === l.lot
       );
 
       const w = warehouse.find(
@@ -125,15 +145,16 @@ export default async function handler(req, res) {
         lot: l.lot,
         seed: l.seed,
 
-        // REAL PLANTS
+        // 🌱 REAL PLANTS
         available: s?.available || 0,
-        mortality: s?.mortality || 0,
         distributed: s?.distributed || 0,
+        mortality: s?.mortality || 0,
 
-        // DOCUMENTATION ONLY
+        // 📝 HISTORY ONLY
         replaced: r?.total || 0,
+        mortalityHistory: m?.total || 0,
 
-        // WAREHOUSE
+        // 📦 WAREHOUSE
         stocks: w?.stocks || 0,
       };
     });
