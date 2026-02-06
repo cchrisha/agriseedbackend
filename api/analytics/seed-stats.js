@@ -1,5 +1,5 @@
 import dbConnect from "../../lib/db.js";
-import ActivityLog from "../../models/ActivityLog.js";
+import SeedStock from "../../models/SeedStock.js";
 
 export default async function handler(req, res) {
 
@@ -15,55 +15,55 @@ export default async function handler(req, res) {
     const month = Number(req.query.month) || now.getMonth() + 1;
 
     // ===============================
-    // 🥧 MONTHLY PIE
+    // 🥧 MONTHLY PIE (REAL DB STATUS)
     // ===============================
 
-    const monthly = await ActivityLog.aggregate([
+    const pie = await SeedStock.aggregate([
       {
         $match: {
-          process: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY"] },
-          createdAt: {
+          status: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY"] },
+          updatedAt: {
             $gte: new Date(year, month - 1, 1),
             $lt: new Date(year, month, 1),
-          },
-        },
+          }
+        }
       },
       {
         $group: {
-          _id: "$process",
-          total: { $sum: "$quantity" },
-        },
-      },
+          _id: "$status",
+          total: { $sum: 1 }
+        }
+      }
     ]);
 
     // ===============================
-    // 📊 YEARLY BAR (STOCK-OUT ONLY)
+    // 📊 YEARLY BAR (REAL DB COUNTS)
     // ===============================
 
-    const yearly = await ActivityLog.aggregate([
+    const bar = await SeedStock.aggregate([
       {
         $match: {
-          process: "STOCK-OUT",
-          createdAt: {
+          status: "STOCK-OUT",
+          updatedAt: {
             $gte: new Date(year, 0, 1),
             $lt: new Date(year + 1, 0, 1),
-          },
-        },
+          }
+        }
       },
       {
         $group: {
-          _id: { month: { $month: "$createdAt" } },
-          total: { $sum: "$quantity" },
-        },
+          _id: { month: { $month: "$updatedAt" } },
+          total: { $sum: 1 }
+        }
       },
-      { $sort: { "_id.month": 1 } },
+      { $sort: { "_id.month": 1 } }
     ]);
 
     return res.json({
       year,
       month,
-      pie: monthly,
-      bar: yearly,
+      pie,
+      bar,
     });
 
   } catch (err) {
