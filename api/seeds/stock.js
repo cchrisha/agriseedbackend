@@ -202,7 +202,7 @@ export default async function handler(req, res) {
     }
 
 // =====================================================
-// 🔁 REPLACED (WAREHOUSE → DEAD SLOT)
+// 🔁 REPLACED (REVIVE MORTALITY + CONSUME STOCK-IN)
 // =====================================================
 
 if (action === "REPLACED") {
@@ -212,47 +212,44 @@ if (action === "REPLACED") {
   if (!qty || block == null || lot == null)
     return res.status(400).json({ message:"Missing fields" });
 
-  // 1️⃣ dead seedlings
+  // 1️⃣ get mortality seedlings (slots to revive)
   const dead = await SeedStock.find({
     seed: seedId,
-    status: "AVAILABLE",
+    status: "MORTALITY",
     block: Number(block),
     lot: Number(lot),
-    stockNo: { $exists: true }
   }).limit(qty);
 
   if (dead.length < qty)
     return res.status(400).json({ message:"Not enough mortality" });
 
-  // 2️⃣ warehouse
+  // 2️⃣ consume warehouse (fake physical source)
   const warehouse = await SeedStock.find({
     seed: seedId,
-    status: "STOCK-IN"
+    status: "STOCK-IN",
   }).limit(qty);
 
   if (warehouse.length < qty)
-    return res.status(400).json({ message:"Not enough warehouse" });
+    return res.status(400).json({ message:"Not enough STOCK-IN" });
 
-  for (let i = 0; i < qty; i++) {
+  // 🔥 delete stock-in (consume replacement)
+  for (const w of warehouse) {
+    await w.deleteOne();
+  }
 
-    const deadSeed = dead[i];
-    const stock = warehouse[i];
+  // 3️⃣ revive mortality → available (same slot)
+  for (const s of dead) {
 
-    const slotNo = deadSeed.stockNo;
-    const slotTag = deadSeed.tag;
+    s.status = "AVAILABLE";
+    await s.save();
 
-    // ✅ free the slot (documentation stays)
-    deadSeed.stockNo = null;
-    deadSeed.tag = null;
-    await deadSeed.save();
-
-    // ✅ physical replacement
-    stock.stockNo = slotNo;
-    stock.tag = slotTag;
-    stock.status = "AVAILABLE";
-    stock.block = Number(block);
-    stock.lot = Number(lot);
-    await stock.save();
+    // documentation only
+    await SeedStock.create({
+      seed: seedId,
+      status: "REPLACED",
+      block: Number(block),
+      lot: Number(lot),
+    });
   }
 
   await ActivityLog.create({
@@ -266,8 +263,6 @@ if (action === "REPLACED") {
 
   return res.json({ message:"Replaced successfully" });
 }
-
-
 
     return res.status(400).json({ message:"Unknown action" });
 
