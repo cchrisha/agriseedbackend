@@ -179,27 +179,42 @@ export default async function handler(req, res) {
     // ☠ MORTALITY
     // =====================================================
 
-    if (action === "MORTALITY") {
+    // =====================================================
+// ☠ MORTALITY (AVAILABLE → DEAD + DOCUMENTATION)
+// =====================================================
 
-      const qty = Number(quantity);
+if (action === "MORTALITY") {
 
-      const available = await SeedStock.find({
-        seed: seedId,
-        status:"AVAILABLE",
-        block:Number(block),
-        lot:Number(lot),
-      }).limit(qty);
+  const qty = Number(quantity);
 
-      if (available.length < qty)
-        return res.status(400).json({ message:"Not enough available" });
+  const available = await SeedStock.find({
+    seed: seedId,
+    status: "AVAILABLE",
+    block: Number(block),
+    lot: Number(lot),
+  }).limit(qty);
 
-      for (const s of available) {
-        s.status = "MORTALITY";
-        await s.save();
-      }
+  if (available.length < qty)
+    return res.status(400).json({ message: "Not enough available" });
 
-      return res.json({ message:"Marked mortality" });
-    }
+  for (const s of available) {
+
+    // physical change
+    s.status = "MORTALITY";
+    await s.save();
+
+    // documentation record
+    await SeedStock.create({
+      seed: seedId,
+      status: "MORTALITY",
+      block: Number(block),
+      lot: Number(lot),
+    });
+  }
+
+  return res.json({ message: "Marked mortality" });
+}
+
 
     // =====================================================
     // 🔁 REPLACED (WAREHOUSE → AVAILABLE + LOG)
