@@ -179,97 +179,89 @@ export default async function handler(req, res) {
     // ☠ MORTALITY
     // =====================================================
 
+    if (action === "MORTALITY") {
+
+      const qty = Number(quantity);
+
+      const available = await SeedStock.find({
+        seed: seedId,
+        status:"AVAILABLE",
+        block:Number(block),
+        lot:Number(lot),
+      }).limit(qty);
+
+      if (available.length < qty)
+        return res.status(400).json({ message:"Not enough available" });
+
+      for (const s of available) {
+        s.status = "MORTALITY";
+        await s.save();
+      }
+
+      return res.json({ message:"Marked mortality" });
+    }
+
     // =====================================================
-// ☠ MORTALITY (AVAILABLE → DEAD + DOCUMENTATION)
-// =====================================================
-// =====================================================
-// ☠ MORTALITY (AVAILABLE → DEAD + PERMANENT DOC)
+// 🔁 REPLACED (WAREHOUSE → DEAD SLOT)
 // =====================================================
 
-if (action === "MORTALITY") {
+if (action === "REPLACED") {
 
   const qty = Number(quantity);
 
   if (!qty || block == null || lot == null)
-    return res.status(400).json({ message: "Missing fields" });
+    return res.status(400).json({ message:"Missing fields" });
 
-  // physical seedlings only
-  const available = await SeedStock.find({
+  // 1️⃣ find dead seedlings WITH stockNo
+  const dead = await SeedStock.find({
     seed: seedId,
-    status: "AVAILABLE",
+    status: "MORTALITY",
     block: Number(block),
     lot: Number(lot),
+    stockNo: { $exists: true }
   }).limit(qty);
 
-  if (available.length < qty)
-    return res.status(400).json({ message:"Not enough available" });
+  if (dead.length < qty)
+    return res.status(400).json({ message:"Not enough mortality to replace" });
 
-  for (const s of available) {
+  // 2️⃣ warehouse stock
+  const warehouse = await SeedStock.find({
+    seed: seedId,
+    status: "STOCK-IN"
+  }).limit(qty);
 
-    // 1️⃣ physical seedling becomes dead
-    s.status = "MORTALITY";
-    await s.save();
+  if (warehouse.length < qty)
+    return res.status(400).json({ message:"Not enough warehouse stock" });
 
-    // 2️⃣ documentation record (NEVER TOUCHED AGAIN)
+  // 3️⃣ replace PER SLOT
+  for (let i = 0; i < qty; i++) {
+
+    const deadSeed = dead[i];
+    const stock = warehouse[i];
+
+    // physical replacement USING SAME NUMBER + TAG
+    stock.stockNo = deadSeed.stockNo;
+    stock.tag = deadSeed.tag;
+    stock.status = "AVAILABLE";
+    stock.block = Number(block);
+    stock.lot = Number(lot);
+
+    await stock.save();
+
+    // documentation only
     await SeedStock.create({
       seed: seedId,
-      status: "MORTALITY",
+      status: "REPLACED",
       block: Number(block),
       lot: Number(lot),
-      docOnly: true,   // 👈 optional flag (recommended)
+      stockNo: deadSeed.stockNo,
+      tag: deadSeed.tag,
     });
   }
 
-  return res.json({ message:"Marked mortality" });
+  return res.json({ message:"Replaced successfully" });
 }
 
-
-    // =====================================================
-    // 🔁 REPLACED (WAREHOUSE → AVAILABLE + LOG)
-    // =====================================================
-
-    if (action === "REPLACED") {
-
-      const qty = Number(quantity);
-
-      const warehouse = await SeedStock.find({
-        seed: seedId,
-        status:"MORTALITY"
-      }).limit(qty);
-
-      if (warehouse.length < qty)
-        return res.status(400).json({ message:"Not enough warehouse" });
-
-      const last = await SeedStock.findOne({
-        seed: seedId,
-        stockNo:{ $exists:true }
-      }).sort({ stockNo:-1 });
-
-      let start = last ? last.stockNo + 1 : 1;
-
-      for (const s of warehouse) {
-
-        // physical replacement
-        s.status = "AVAILABLE";
-        s.block = Number(block);
-        s.lot = Number(lot);
-        s.stockNo = start;
-        s.tag = `${seed.tag}-${start}`;
-        await s.save();
-
-        // documentation
-        await SeedStock.create({
-          seed: seedId,
-          status:"REPLACED",
-          block:Number(block),
-          lot:Number(lot)
-        });
-
-        start++;
-      }
-
-      return res.json({ message:"Replaced successfully" });
-    }
 
     return res.status(400).json({ message:"Unknown action" });
 
