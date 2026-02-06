@@ -182,11 +182,18 @@ export default async function handler(req, res) {
     // =====================================================
 // ☠ MORTALITY (AVAILABLE → DEAD + DOCUMENTATION)
 // =====================================================
+// =====================================================
+// ☠ MORTALITY (AVAILABLE → DEAD + PERMANENT DOC)
+// =====================================================
 
 if (action === "MORTALITY") {
 
   const qty = Number(quantity);
 
+  if (!qty || block == null || lot == null)
+    return res.status(400).json({ message: "Missing fields" });
+
+  // physical seedlings only
   const available = await SeedStock.find({
     seed: seedId,
     status: "AVAILABLE",
@@ -195,24 +202,25 @@ if (action === "MORTALITY") {
   }).limit(qty);
 
   if (available.length < qty)
-    return res.status(400).json({ message: "Not enough available" });
+    return res.status(400).json({ message:"Not enough available" });
 
   for (const s of available) {
 
-    // physical change
+    // 1️⃣ physical seedling becomes dead
     s.status = "MORTALITY";
     await s.save();
 
-    // documentation record
+    // 2️⃣ documentation record (NEVER TOUCHED AGAIN)
     await SeedStock.create({
       seed: seedId,
       status: "MORTALITY",
       block: Number(block),
       lot: Number(lot),
+      docOnly: true,   // 👈 optional flag (recommended)
     });
   }
 
-  return res.json({ message: "Marked mortality" });
+  return res.json({ message:"Marked mortality" });
 }
 
 
