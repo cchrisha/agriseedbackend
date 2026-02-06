@@ -176,21 +176,19 @@ export default async function handler(req, res) {
     }
 
 // =====================================================
-// ☠ MORTALITY (AVAILABLE → DEAD + DOCUMENTATION)
+// ☠ MORTALITY
 // =====================================================
 
 if (action === "MORTALITY") {
 
   const qty = Number(quantity);
 
-  if (!qty || block == null || lot == null)
-    return res.status(400).json({ message:"Missing fields" });
-
   const available = await SeedStock.find({
     seed: seedId,
     status: "AVAILABLE",
     block: Number(block),
     lot: Number(lot),
+    stockNo: { $exists:true }   // ONLY physical
   }).limit(qty);
 
   if (available.length < qty)
@@ -198,72 +196,57 @@ if (action === "MORTALITY") {
 
   for (const s of available) {
 
-    // 🔥 physical death
+    // physical death
     s.status = "MORTALITY";
     await s.save();
 
-    // 📝 documentation only
+    // documentation (NO stockNo!)
     await SeedStock.create({
       seed: seedId,
       status: "MORTALITY",
       block: Number(block),
       lot: Number(lot),
-      stockNo: s.stockNo,
-      tag: s.tag,
     });
   }
-
-  await ActivityLog.create({
-    user, role,
-    seed: seed._id,
-    seedName: seed.name,
-    seedTag: seed.tag,
-    quantity: qty,
-    process: "MORTALITY",
-  });
 
   return res.json({ message:"Marked mortality" });
 }
 
+
 // =====================================================
-// 🔁 REPLACED (REVIVE MORTALITY + CONSUME STOCK-IN)
+// 🔁 REPLACED
 // =====================================================
 
 if (action === "REPLACED") {
 
   const qty = Number(quantity);
 
-  if (!qty || block == null || lot == null)
-    return res.status(400).json({ message:"Missing fields" });
-
-  // 1️⃣ get mortality seedlings (slots to revive)
+  // ONLY physical mortality
   const dead = await SeedStock.find({
     seed: seedId,
     status: "MORTALITY",
     block: Number(block),
     lot: Number(lot),
+    stockNo: { $exists:true }
   }).limit(qty);
 
   if (dead.length < qty)
     return res.status(400).json({ message:"Not enough mortality" });
 
-  // 2️⃣ consume warehouse (fake physical source)
+  // consume STOCK-IN
   const warehouse = await SeedStock.find({
     seed: seedId,
-    status: "STOCK-IN",
+    status: "STOCK-IN"
   }).limit(qty);
 
   if (warehouse.length < qty)
-    return res.status(400).json({ message:"Not enough STOCK-IN" });
+    return res.status(400).json({ message:"Not enough stock-in" });
 
-  // 🔥 delete stock-in (consume replacement)
-  for (const w of warehouse) {
-    await w.deleteOne();
-  }
+  // delete stock-in (consume)
+  for (const w of warehouse) await w.deleteOne();
 
-  // 3️⃣ revive mortality → available (same slot)
+  // revive SAME rows
   for (const s of dead) {
-
     s.status = "AVAILABLE";
     await s.save();
 
@@ -276,17 +259,9 @@ if (action === "REPLACED") {
     });
   }
 
-  await ActivityLog.create({
-    user, role,
-    seed: seed._id,
-    seedName: seed.name,
-    seedTag: seed.tag,
-    quantity: qty,
-    process: "REPLACED",
-  });
-
   return res.json({ message:"Replaced successfully" });
 }
+
 
     return res.status(400).json({ message:"Unknown action" });
 
