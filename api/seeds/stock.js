@@ -182,6 +182,9 @@ if (action === "MORTALITY") {
 
   const qty = Number(quantity);
 
+  if (!qty || block == null || lot == null)
+    return res.status(400).json({ message:"Missing fields" });
+
   const available = await SeedStock.find({
     seed: seedId,
     status: "AVAILABLE",
@@ -192,20 +195,28 @@ if (action === "MORTALITY") {
   if (available.length < qty)
     return res.status(400).json({ message:"Not enough available" });
 
+  // 🔥 physical death
   for (const s of available) {
     s.status = "MORTALITY";
     await s.save();
   }
 
+  // 📝 HISTORY RECORD ONLY
   await ActivityLog.create({
-    user, role,
+    user,
+    role,
     seed: seed._id,
+    seedName: seed.name,
+    seedTag: seed.tag,
     quantity: qty,
     process: "MORTALITY",
+    block: Number(block),
+    lot: Number(lot),
   });
 
   return res.json({ message:"Marked mortality" });
 }
+
 
 // =====================================================
 // 🔁 REPLACED
@@ -214,6 +225,10 @@ if (action === "REPLACED") {
 
   const qty = Number(quantity);
 
+  if (!qty || block == null || lot == null)
+    return res.status(400).json({ message:"Missing fields" });
+
+  // get dead seedlings
   const dead = await SeedStock.find({
     seed: seedId,
     status: "MORTALITY",
@@ -224,6 +239,7 @@ if (action === "REPLACED") {
   if (dead.length < qty)
     return res.status(400).json({ message:"Not enough mortality" });
 
+  // get warehouse
   const warehouse = await SeedStock.find({
     seed: seedId,
     status: "STOCK-IN",
@@ -232,26 +248,33 @@ if (action === "REPLACED") {
   if (warehouse.length < qty)
     return res.status(400).json({ message:"Not enough stock-in" });
 
-  // consume stock-in
+  // 🔥 consume stock-in
   for (const w of warehouse) {
     await w.deleteOne();
   }
 
-  // revive same seedlings
+  // 🌱 revive SAME seedlings
   for (const s of dead) {
     s.status = "AVAILABLE";
     await s.save();
   }
 
+  // 📝 HISTORY RECORD ONLY
   await ActivityLog.create({
-    user, role,
+    user,
+    role,
     seed: seed._id,
+    seedName: seed.name,
+    seedTag: seed.tag,
     quantity: qty,
     process: "REPLACED",
+    block: Number(block),
+    lot: Number(lot),
   });
 
   return res.json({ message:"Replaced successfully" });
 }
+
 
     return res.status(400).json({ message:"Unknown action" });
 
