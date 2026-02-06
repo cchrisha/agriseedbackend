@@ -178,7 +178,6 @@ export default async function handler(req, res) {
 // =====================================================
 // ☠ MORTALITY
 // =====================================================
-
 if (action === "MORTALITY") {
 
   const qty = Number(quantity);
@@ -188,80 +187,71 @@ if (action === "MORTALITY") {
     status: "AVAILABLE",
     block: Number(block),
     lot: Number(lot),
-    stockNo: { $exists:true }   // ONLY physical
   }).limit(qty);
 
   if (available.length < qty)
     return res.status(400).json({ message:"Not enough available" });
 
   for (const s of available) {
-
-    // physical death
     s.status = "MORTALITY";
     await s.save();
-
-    // documentation (NO stockNo!)
-    await SeedStock.create({
-      seed: seedId,
-      status: "MORTALITY-DOC",
-      block: Number(block),
-      lot: Number(lot),
-    });
   }
+
+  await ActivityLog.create({
+    user, role,
+    seed: seed._id,
+    quantity: qty,
+    process: "MORTALITY",
+  });
 
   return res.json({ message:"Marked mortality" });
 }
 
-
 // =====================================================
 // 🔁 REPLACED
 // =====================================================
-
 if (action === "REPLACED") {
 
   const qty = Number(quantity);
 
-  // ONLY physical mortality
   const dead = await SeedStock.find({
     seed: seedId,
     status: "MORTALITY",
     block: Number(block),
     lot: Number(lot),
-    stockNo: { $exists:true }
   }).limit(qty);
 
   if (dead.length < qty)
     return res.status(400).json({ message:"Not enough mortality" });
 
-  // consume STOCK-IN
   const warehouse = await SeedStock.find({
     seed: seedId,
-    status: "STOCK-IN"
+    status: "STOCK-IN",
   }).limit(qty);
 
   if (warehouse.length < qty)
     return res.status(400).json({ message:"Not enough stock-in" });
 
-  // delete stock-in (consume)
-  for (const w of warehouse) await w.deleteOne();
+  // consume stock-in
+  for (const w of warehouse) {
+    await w.deleteOne();
+  }
 
-  // revive SAME rows
+  // revive same seedlings
   for (const s of dead) {
     s.status = "AVAILABLE";
     await s.save();
-
-    // documentation only
-    await SeedStock.create({
-      seed: seedId,
-      status: "REPLACED",
-      block: Number(block),
-      lot: Number(lot),
-    });
   }
+
+  await ActivityLog.create({
+    user, role,
+    seed: seed._id,
+    quantity: qty,
+    process: "REPLACED",
+  });
 
   return res.json({ message:"Replaced successfully" });
 }
-
 
     return res.status(400).json({ message:"Unknown action" });
 
