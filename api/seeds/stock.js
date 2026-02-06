@@ -215,7 +215,7 @@ if (action === "REPLACED") {
   // 1️⃣ dead seedlings
   const dead = await SeedStock.find({
     seed: seedId,
-    status: "MORTALITY",
+    status: "AVAILABLE",
     block: Number(block),
     lot: Number(lot),
     stockNo: { $exists: true }
