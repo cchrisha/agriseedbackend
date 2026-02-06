@@ -175,31 +175,55 @@ export default async function handler(req, res) {
       return res.json({ message:"Distributed" });
     }
 
-    // =====================================================
-    // ☠ MORTALITY
-    // =====================================================
+// =====================================================
+// ☠ MORTALITY (AVAILABLE → DEAD + DOCUMENTATION)
+// =====================================================
 
-    if (action === "MORTALITY") {
+if (action === "MORTALITY") {
 
-      const qty = Number(quantity);
+  const qty = Number(quantity);
 
-      const available = await SeedStock.find({
-        seed: seedId,
-        status:"AVAILABLE",
-        block:Number(block),
-        lot:Number(lot),
-      }).limit(qty);
+  if (!qty || block == null || lot == null)
+    return res.status(400).json({ message:"Missing fields" });
 
-      if (available.length < qty)
-        return res.status(400).json({ message:"Not enough available" });
+  const available = await SeedStock.find({
+    seed: seedId,
+    status: "AVAILABLE",
+    block: Number(block),
+    lot: Number(lot),
+  }).limit(qty);
 
-      for (const s of available) {
-        s.status = "MORTALITY";
-        await s.save();
-      }
+  if (available.length < qty)
+    return res.status(400).json({ message:"Not enough available" });
 
-      return res.json({ message:"Marked mortality" });
-    }
+  for (const s of available) {
+
+    // 🔥 physical death
+    s.status = "MORTALITY";
+    await s.save();
+
+    // 📝 documentation only
+    await SeedStock.create({
+      seed: seedId,
+      status: "MORTALITY",
+      block: Number(block),
+      lot: Number(lot),
+      stockNo: s.stockNo,
+      tag: s.tag,
+    });
+  }
+
+  await ActivityLog.create({
+    user, role,
+    seed: seed._id,
+    seedName: seed.name,
+    seedTag: seed.tag,
+    quantity: qty,
+    process: "MORTALITY",
+  });
+
+  return res.json({ message:"Marked mortality" });
+}
 
 // =====================================================
 // 🔁 REPLACED (REVIVE MORTALITY + CONSUME STOCK-IN)
