@@ -201,7 +201,7 @@ export default async function handler(req, res) {
       return res.json({ message:"Marked mortality" });
     }
 
-    // =====================================================
+// =====================================================
 // 🔁 REPLACED (WAREHOUSE → DEAD SLOT)
 // =====================================================
 
@@ -212,7 +212,7 @@ if (action === "REPLACED") {
   if (!qty || block == null || lot == null)
     return res.status(400).json({ message:"Missing fields" });
 
-  // 1️⃣ find dead seedlings WITH stockNo
+  // 1️⃣ dead seedlings
   const dead = await SeedStock.find({
     seed: seedId,
     status: "MORTALITY",
@@ -222,45 +222,51 @@ if (action === "REPLACED") {
   }).limit(qty);
 
   if (dead.length < qty)
-    return res.status(400).json({ message:"Not enough mortality to replace" });
+    return res.status(400).json({ message:"Not enough mortality" });
 
-  // 2️⃣ warehouse stock
+  // 2️⃣ warehouse
   const warehouse = await SeedStock.find({
     seed: seedId,
     status: "STOCK-IN"
   }).limit(qty);
 
   if (warehouse.length < qty)
-    return res.status(400).json({ message:"Not enough warehouse stock" });
+    return res.status(400).json({ message:"Not enough warehouse" });
 
-  // 3️⃣ replace PER SLOT
   for (let i = 0; i < qty; i++) {
 
     const deadSeed = dead[i];
     const stock = warehouse[i];
 
-    // physical replacement USING SAME NUMBER + TAG
-    stock.stockNo = deadSeed.stockNo;
-    stock.tag = deadSeed.tag;
+    const slotNo = deadSeed.stockNo;
+    const slotTag = deadSeed.tag;
+
+    // ✅ free the slot (documentation stays)
+    deadSeed.stockNo = null;
+    deadSeed.tag = null;
+    await deadSeed.save();
+
+    // ✅ physical replacement
+    stock.stockNo = slotNo;
+    stock.tag = slotTag;
     stock.status = "AVAILABLE";
     stock.block = Number(block);
     stock.lot = Number(lot);
-
     await stock.save();
-
-    // documentation only
-    await SeedStock.create({
-      seed: seedId,
-      status: "REPLACED",
-      block: Number(block),
-      lot: Number(lot),
-      stockNo: deadSeed.stockNo,
-      tag: deadSeed.tag,
-    });
   }
+
+  await ActivityLog.create({
+    user, role,
+    seed: seed._id,
+    seedName: seed.name,
+    seedTag: seed.tag,
+    quantity: qty,
+    process: "REPLACED",
+  });
 
   return res.json({ message:"Replaced successfully" });
 }
+
 
 
     return res.status(400).json({ message:"Unknown action" });
