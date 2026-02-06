@@ -14,14 +14,12 @@ export default async function handler(req, res) {
     const year = Number(req.query.year) || now.getFullYear();
     const month = Number(req.query.month) || now.getMonth() + 1;
 
-    // ===============================
-    // 🥧 MONTHLY PIE (REAL DB STATUS)
-    // ===============================
+    // ================= PIE (MONTHLY) =================
 
     const pie = await SeedStock.aggregate([
       {
         $match: {
-          status: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY"] },
+          status: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY", "STOCK-IN"] },
           updatedAt: {
             $gte: new Date(year, month - 1, 1),
             $lt: new Date(year, month, 1),
@@ -36,14 +34,12 @@ export default async function handler(req, res) {
       }
     ]);
 
-    // ===============================
-    // 📊 YEARLY BAR (REAL DB COUNTS)
-    // ===============================
+    // ================= BAR (YEARLY + STATUS) =================
 
     const bar = await SeedStock.aggregate([
       {
         $match: {
-          status: "STOCK-OUT",
+          status: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY"] },
           updatedAt: {
             $gte: new Date(year, 0, 1),
             $lt: new Date(year + 1, 0, 1),
@@ -52,7 +48,10 @@ export default async function handler(req, res) {
       },
       {
         $group: {
-          _id: { month: { $month: "$updatedAt" } },
+          _id: {
+            month: { $month: "$updatedAt" },
+            process: "$status"
+          },
           total: { $sum: 1 }
         }
       },
