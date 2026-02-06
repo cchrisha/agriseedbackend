@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     const month = Number(req.query.month) || now.getMonth() + 1;
 
     // ===============================
-    // 🥧 MONTHLY PIE (AVAILABLE / STOCK-OUT / MORTALITY)
+    // 🥧 MONTHLY PIE
     // ===============================
 
     const monthly = await ActivityLog.aggregate([
@@ -37,13 +37,13 @@ export default async function handler(req, res) {
     ]);
 
     // ===============================
-    // 📊 YEARLY BAR (PER MONTH)
+    // 📊 YEARLY BAR (STOCK-OUT ONLY)
     // ===============================
 
     const yearly = await ActivityLog.aggregate([
       {
         $match: {
-          process: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY"] },
+          process: "STOCK-OUT",
           createdAt: {
             $gte: new Date(year, 0, 1),
             $lt: new Date(year + 1, 0, 1),
@@ -52,10 +52,7 @@ export default async function handler(req, res) {
       },
       {
         $group: {
-          _id: {
-            month: { $month: "$createdAt" },
-            process: "$process",
-          },
+          _id: { month: { $month: "$createdAt" } },
           total: { $sum: "$quantity" },
         },
       },
