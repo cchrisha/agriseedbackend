@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const pie = await SeedStock.aggregate([
       {
         $match: {
-          status: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY", "STOCK-IN"] },
+          status: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY"] },
           updatedAt: {
             $gte: new Date(year, month - 1, 1),
             $lt: new Date(year, month, 1),
