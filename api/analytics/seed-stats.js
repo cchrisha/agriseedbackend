@@ -1,5 +1,5 @@
 import dbConnect from "../../lib/db.js";
-import SeedStock from "../../models/SeedStock.js";
+import ActivityLog from "../../models/ActivityLog.js";
 
 export default async function handler(req, res) {
 
@@ -14,13 +14,15 @@ export default async function handler(req, res) {
     const year = Number(req.query.year) || now.getFullYear();
     const month = Number(req.query.month) || now.getMonth() + 1;
 
+    const allowedProcesses = ["AVAILABLE", "STOCK-OUT", "MORTALITY"];
+
     // ================= PIE (MONTHLY) =================
 
-    const pie = await SeedStock.aggregate([
+    const pie = await ActivityLog.aggregate([
       {
         $match: {
-          status: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY"] },
-          updatedAt: {
+          process: { $in: allowedProcesses },
+          createdAt: {
             $gte: new Date(year, month - 1, 1),
             $lt: new Date(year, month, 1),
           }
@@ -28,19 +30,19 @@ export default async function handler(req, res) {
       },
       {
         $group: {
-          _id: "$status",
-          total: { $sum: 1 }
+          _id: "$process",
+          total: { $sum: "$quantity" }
         }
       }
     ]);
 
-    // ================= BAR (YEARLY + STATUS) =================
+    // ================= BAR (YEARLY + PROCESS) =================
 
-    const bar = await SeedStock.aggregate([
+    const bar = await ActivityLog.aggregate([
       {
         $match: {
-          status: { $in: ["AVAILABLE", "STOCK-OUT", "MORTALITY"] },
-          updatedAt: {
+          process: { $in: allowedProcesses },
+          createdAt: {
             $gte: new Date(year, 0, 1),
             $lt: new Date(year + 1, 0, 1),
           }
@@ -49,10 +51,10 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: {
-            month: { $month: "$updatedAt" },
-            process: "$status"
+            month: { $month: "$createdAt" },
+            process: "$process"
           },
-          total: { $sum: 1 }
+          total: { $sum: "$quantity" }
         }
       },
       { $sort: { "_id.month": 1 } }
