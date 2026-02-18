@@ -55,35 +55,52 @@ export default async function handler(req, res) {
     }
 
     // ===============================
-    // SOFT DELETE
-    // ===============================
-    if (req.method === "DELETE") {
+// SOFT DELETE + CLEAR LOTS
+// ===============================
+if (req.method === "DELETE") {
 
-      const { seedId } = req.body;
+  const { seedId } = req.body;
 
-      if (!seedId)
-        return res.status(400).json({ message: "seedId required" });
+  const user = req.headers.user || "System";
+  const role = req.headers.role || "admin";
 
-      const seed = await Seed.findById(seedId);
-      if (!seed) return res.status(404).json({ message: "Seed not found" });
+  if (!seedId)
+    return res.status(400).json({ message: "seedId required" });
 
-      seed.isDeleted = true;
-      seed.deletedAt = new Date();
-      await seed.save();
+  const seed = await Seed.findById(seedId);
+  if (!seed) return res.status(404).json({ message: "Seed not found" });
 
-      await ActivityLog.create({
-        user,
-        role,
-        seed: seed._id,
-        seedName: seed.name,
-        seedTag: seed.tag,
-        quantity: 0,
-        process: "DELETED",
-      });
+  // 1️⃣ Soft delete seed
+  seed.isDeleted = true;
+  seed.deletedAt = new Date();
+  await seed.save();
 
-      return res.json({ message: "Seed deleted" });
-    }
+  // 2️⃣ Remove seed from ALL lots
+  await Lot.updateMany(
+    { seed: seedId },
+    { $unset: { seed: "" } }
+  );
 
+  // 3️⃣ Remove physical plants from all lots
+  await SeedStock.deleteMany({
+    seed: seedId,
+    block: { $ne: null },
+    lot: { $ne: null },
+  });
+
+  // 4️⃣ Log activity
+  await ActivityLog.create({
+    user,
+    role,
+    seed: seed._id,
+    seedName: seed.name,
+    seedTag: seed.tag,
+    quantity: 0,
+    process: "DELETED",
+  });
+
+  return res.json({ message: "Seed soft deleted and lots cleared" });
+}
     return res.status(405).json({ message: "Method not allowed" });
 
   } catch (err) {
