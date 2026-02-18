@@ -59,31 +59,40 @@ export default async function handler(req, res) {
     // ===============================
     if (req.method === "DELETE") {
 
-      const { seedId } = req.body;
+    const { seedId, block, lot } = req.body;
 
-      if (!seedId)
-        return res.status(400).json({ message: "seedId required" });
+    if (!seedId || block == null || lot == null)
+      return res.status(400).json({ message: "seedId, block, lot required" });
 
-      const seed = await Seed.findById(seedId);
-      if (!seed) return res.status(404).json({ message: "Seed not found" });
+    const seed = await Seed.findById(seedId);
+    if (!seed) return res.status(404).json({ message: "Seed not found" });
 
-      seed.isDeleted = true;
-      seed.deletedAt = new Date();
-      await seed.save();
+    // 🔥 1. Clear lot
+    await Lot.findOneAndUpdate(
+      { block: Number(block), lot: Number(lot), seed: seedId },
+      { $unset: { seed: "" } }
+    );
 
-      await ActivityLog.create({
-        user,
-        role,
-        seed: seed._id,
-        seedName: seed.name,
-        seedTag: seed.tag,
-        quantity: 0,
-        process: "DELETED",
-      });
+    // 🔥 2. Optional: Remove available plants in that lot
+    await SeedStock.deleteMany({
+      seed: seedId,
+      block: Number(block),
+      lot: Number(lot),
+    });
 
-      return res.json({ message: "Seed deleted" });
-    }
+    // 🔥 3. Log activity
+    await ActivityLog.create({
+      user,
+      role,
+      seed: seed._id,
+      seedName: seed.name,
+      seedTag: seed.tag,
+      quantity: 0,
+      process: "DELETED",
+    });
 
+    return res.json({ message: "Seed removed from lot" });
+  }
     return res.status(405).json({ message: "Method not allowed" });
 
   } catch (err) {
