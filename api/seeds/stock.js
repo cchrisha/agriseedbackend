@@ -172,6 +172,16 @@ export default async function handler(req, res) {
         await s.save();
       }
 
+      await ActivityLog.create({
+    user,
+    role,
+    seed: seed._id,
+    seedName: seed.name,
+    seedTag: seed.tag,
+    quantity: qty,
+    process: "STOCK-OUT",
+  });
+
       return res.json({ message:"Distributed" });
     }
 
