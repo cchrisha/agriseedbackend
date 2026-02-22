@@ -55,40 +55,43 @@ export default async function handler(req, res) {
     }
 
     // ===============================
-// SOFT DELETE + CLEAR LOTS
+// SOFT DELETE + EMPTY LOT
 // ===============================
 if (req.method === "DELETE") {
 
   const { seedId } = req.body;
 
-  const user = req.headers.user || "System";
-  const role = req.headers.role || "admin";
-
   if (!seedId)
     return res.status(400).json({ message: "seedId required" });
 
   const seed = await Seed.findById(seedId);
-  if (!seed) return res.status(404).json({ message: "Seed not found" });
+  if (!seed)
+    return res.status(404).json({ message: "Seed not found" });
 
   // 1️⃣ Soft delete seed
   seed.isDeleted = true;
   seed.deletedAt = new Date();
   await seed.save();
 
-  // 2️⃣ Remove seed from ALL lots
+  // 2️⃣ Get all lots na may seed na ito
+  const lots = await Lot.find({ seed: seedId });
+
+  // 3️⃣ Remove ALL seedlings from those lots
+  for (const lot of lots) {
+    await SeedStock.deleteMany({
+      seed: seedId,
+      block: lot.block,
+      lot: lot.lot,
+    });
+  }
+
+  // 4️⃣ Clear lot (remove seed reference)
   await Lot.updateMany(
     { seed: seedId },
-    { $unset: { seed: "" } }
+    { $set: { seed: null } }
   );
 
-  // 3️⃣ Remove physical plants from all lots
-  await SeedStock.deleteMany({
-    seed: seedId,
-    block: { $ne: null },
-    lot: { $ne: null },
-  });
-
-  // 4️⃣ Log activity
+  // 5️⃣ Log activity
   await ActivityLog.create({
     user,
     role,
@@ -99,7 +102,7 @@ if (req.method === "DELETE") {
     process: "DELETED",
   });
 
-  return res.json({ message: "Seed soft deleted and lots cleared" });
+  return res.json({ message: "Seed deleted and lot is now empty" });
 }
     return res.status(405).json({ message: "Method not allowed" });
 
