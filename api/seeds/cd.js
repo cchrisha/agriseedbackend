@@ -1,6 +1,8 @@
 import dbConnect from "../../lib/db.js";
 import Seed from "../../models/Seed.js";
 import ActivityLog from "../../models/ActivityLog.js";
+import Lot from "../../models/Lot.js";          // ADD THIS
+import SeedStock from "../../models/SeedStock.js"; // ADD THIS
 
 export default async function handler(req, res) {
   await dbConnect();
