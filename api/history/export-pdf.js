@@ -1,5 +1,5 @@
-import dbConnect from "../../../lib/db.js";
-import SeedStock from "../../../models/SeedStock.js";
+import dbConnect from "../../lib/db.js";
+import SeedStock from "../../models/SeedStock.js";
 import PDFDocument from "pdfkit";
 
 export default async function handler(req, res) {
