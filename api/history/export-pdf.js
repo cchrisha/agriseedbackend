@@ -53,31 +53,42 @@ export default async function handler(req, res) {
       console.log("Watermark not loaded");
     }
 
-    // ================= HEADER WITH ALIGNED LOGO =================
+// ================= HEADER (CENTER TEXT + RIGHT LOGO) =================
 
-const headerTop = 70; // controls vertical alignment
+const headerTop = 80;
+const logoSize = 85;
 
-// LOGO (LEFT SIDE)
+// ===== CENTERED TEXT =====
+doc
+  .font("Helvetica-Bold")
+  .fontSize(20)
+  .text("DEPARTMENT OF AGRICULTURE", 0, headerTop, {
+    align: "center"
+  });
+
+doc
+  .fontSize(16)
+  .text("PREC STA. BARBARA", {
+    align: "center"
+  });
+
+// ===== LOGO ON RIGHT =====
 try {
   const logoPath = path.resolve("./public/da.png");
-  doc.image(logoPath, 70, headerTop, { width: 80 });
+
+  doc.image(
+    logoPath,
+    doc.page.width - 120,  // right side position
+    headerTop - 10,        // vertical alignment with text
+    { width: logoSize }
+  );
+
 } catch (e) {
   console.log("Logo not found");
 }
 
-// TEXT (CENTERED SAME HEIGHT AS LOGO)
-doc
-  .font("Helvetica-Bold")
-  .fontSize(18)
-  .text("DEPARTMENT OF AGRICULTURE", 0, headerTop + 15, {
-    align: "center"
-  });
-
-doc
-  .fontSize(15)
-  .text("PREC STA. BARBARA", {
-    align: "center"
-  });
+// Move cursor below header block
+doc.y = headerTop + 90;
 
     doc.moveDown(1);
 
