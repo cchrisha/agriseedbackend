@@ -5,16 +5,12 @@ export default async function handler(req, res) {
   await dbConnect();
 
   try {
-    // ROLE comes from headers (temporary – until JWT middleware)
     const role = req.headers.role;
 
-    // Only these roles can access USER history
     if (!["admin", "rnd", "op-h", "op-non"].includes(role)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    // USER HISTORY:
-    // ❌ exclude CREATED + DELETED
     const logs = await ActivityLog.find({
       process: { $nin: ["CREATED", "DELETED"] },
     })

@@ -208,16 +208,29 @@ if (action === "MORTALITY") {
     await s.save();
   }
 
-  // HISTORY ONLY
+  // // HISTORY ONLY
+  // await ActivityLog.create({
+  //   user,
+  //   role,
+  //   seed: seed._id,
+  //   quantity: qty,
+  //   process: "MORTALITY",
+  //   block:Number(block),
+  //   lot:Number(lot),
+  // });
+
   await ActivityLog.create({
-    user,
-    role,
-    seed: seed._id,
-    quantity: qty,
-    process: "MORTALITY",
-    block:Number(block),
-    lot:Number(lot),
-  });
+  user,
+  role,
+  seed: seed._id,
+  seedName: seed.name,
+  seedTag: seed.tag,
+  quantity: qty,
+  process: "MORTALITY",
+  block:Number(block),
+  lot:Number(lot),
+});
+
 
   return res.json({ message:"Marked mortality" });
 }
@@ -260,16 +273,28 @@ if (action === "REPLACED") {
     await s.save();
   }
 
-  // HISTORY ONLY
+  // // HISTORY ONLY
+  // await ActivityLog.create({
+  //   user,
+  //   role,
+  //   seed: seed._id,
+  //   quantity: qty,
+  //   process: "REPLACED",
+  //   block:Number(block),
+  //   lot:Number(lot),
+  // });
+
   await ActivityLog.create({
-    user,
-    role,
-    seed: seed._id,
-    quantity: qty,
-    process: "REPLACED",
-    block:Number(block),
-    lot:Number(lot),
-  });
+  user,
+  role,
+  seed: seed._id,
+  seedName: seed.name,
+  seedTag: seed.tag,
+  quantity: qty,
+  process: "REPLACED",
+  block:Number(block),
+  lot:Number(lot),
+});
 
   return res.json({ message:"Replaced successfully" });
 }
