@@ -43,8 +43,8 @@ export default async function handler(req, res) {
       doc.opacity(0.08);
       doc.image(
         watermarkPath,
-        (doc.page.width - 750) / 2,
-        (doc.page.height - 750) / 2,
+        (doc.page.width - 350) / 2,
+        (doc.page.height - 350) / 2,
         { width: 350 }
       );
       doc.restore();
