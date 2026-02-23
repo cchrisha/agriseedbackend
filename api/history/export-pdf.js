@@ -52,24 +52,31 @@ export default async function handler(req, res) {
       console.log("Watermark not loaded");
     }
 
-    // ================= LOGO (UPPER RIGHT) =================
-    try {
-      const logoPath = path.resolve("./public/da.png");
-      doc.image(logoPath, doc.page.width - 130, 40, { width: 80 });
-    } catch (e) {
-      console.log("Logo not found");
-    }
+    // ================= HEADER WITH ALIGNED LOGO =================
 
-    // ================= HEADER =================
+const headerTop = 70; // controls vertical alignment
 
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(16)
-      .text("DEPARTMENT OF AGRICULTURE", 0, 80, { align: "center" });
+// LOGO (LEFT SIDE)
+try {
+  const logoPath = path.resolve("./public/da.png");
+  doc.image(logoPath, 70, headerTop, { width: 80 });
+} catch (e) {
+  console.log("Logo not found");
+}
 
-    doc
-      .fontSize(14)
-      .text("PREC STA. BARBARA", { align: "center" });
+// TEXT (CENTERED SAME HEIGHT AS LOGO)
+doc
+  .font("Helvetica-Bold")
+  .fontSize(18)
+  .text("DEPARTMENT OF AGRICULTURE", 0, headerTop + 15, {
+    align: "center"
+  });
+
+doc
+  .fontSize(15)
+  .text("PREC STA. BARBARA", {
+    align: "center"
+  });
 
     doc.moveDown(1);
 
