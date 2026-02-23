@@ -57,7 +57,7 @@ export default async function handler(req, res) {
 
 const headerTop = 80;
 const logoSize = 90;
-const leftMargin = 60;
+const leftMargin = 45;
 
 // ===== LOGO LEFT =====
 try {
