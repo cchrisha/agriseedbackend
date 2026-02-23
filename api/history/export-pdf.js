@@ -1,5 +1,6 @@
 import dbConnect from "../../lib/db.js";
 import SeedStock from "../../models/SeedStock.js";
+import Seed from "../../models/Seed.js";
 import path from "path";
 import PDFDocument from "pdfkit";
 
