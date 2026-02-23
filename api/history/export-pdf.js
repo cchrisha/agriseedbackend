@@ -15,6 +15,7 @@ export default async function handler(req, res) {
 
     let filter = {};
 
+    // FILTER BY STATUS (if provided)
     if (process && process !== "ALL") {
       filter.status = process;
     }
@@ -23,6 +24,7 @@ export default async function handler(req, res) {
       .sort({ createdAt: -1 })
       .populate("seed");
 
+    // CREATE PDF
     const doc = new PDFDocument({ margin: 40 });
 
     res.setHeader("Content-Type", "application/pdf");
@@ -33,11 +35,14 @@ export default async function handler(req, res) {
 
     doc.pipe(res);
 
+    // TITLE
     doc.fontSize(18).text("Seed History Report", { align: "center" });
     doc.moveDown();
+
     doc.fontSize(12).text(`Process Filter: ${process || "ALL"}`);
     doc.moveDown(2);
 
+    // LIST DATA
     stocks.forEach((s, i) => {
 
       doc
