@@ -1,5 +1,6 @@
 import dbConnect from "../../lib/db.js";
 import SeedStock from "../../models/SeedStock.js";
+import path from "path";
 import Seed from "../../models/Seed.js";
 import PDFDocument from "pdfkit";
 
@@ -36,6 +37,13 @@ res.setHeader(
 );
 
 doc.pipe(res);
+
+// ===================== LOGO =====================
+
+const logoPath = path.join(process.cwd(), "public", "da-logo.png");
+
+// Upper right logo
+doc.image(logoPath, 450, 40, { width: 80 });
 
 // ===================== HEADER =====================
 
