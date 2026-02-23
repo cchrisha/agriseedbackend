@@ -40,7 +40,7 @@ doc.pipe(res);
 
 // ===================== LOGO =====================
 
-const logoPath = path.join(process.cwd(), "public", "da-logo.png");
+const logoPath = path.join(process.cwd(), "public", "da.png");
 
 // Upper right logo
 doc.image(logoPath, 450, 40, { width: 80 });
