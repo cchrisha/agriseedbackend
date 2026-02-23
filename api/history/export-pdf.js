@@ -1,7 +1,6 @@
 import dbConnect from "../../lib/db.js";
 import SeedStock from "../../models/SeedStock.js";
 import path from "path";
-import Seed from "../../models/Seed.js";
 import PDFDocument from "pdfkit";
 
 export default async function handler(req, res) {
@@ -17,7 +16,6 @@ export default async function handler(req, res) {
 
     let filter = {};
 
-    // FILTER BY STATUS (if provided)
     if (process && process !== "ALL") {
       filter.status = process;
     }
@@ -26,113 +24,124 @@ export default async function handler(req, res) {
       .sort({ createdAt: -1 })
       .populate("seed");
 
-    //CREATE PDF
-
     const doc = new PDFDocument({ margin: 50 });
 
-res.setHeader("Content-Type", "application/pdf");
-res.setHeader(
-  "Content-Disposition",
-  `attachment; filename=seed-history-${process || "ALL"}.pdf`
-);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=seed-history-${process || "ALL"}.pdf`
+    );
 
-doc.pipe(res);
+    doc.pipe(res);
 
-// ===================== LOGO =====================
+    // ================= WATERMARK =================
+    try {
+      const watermarkPath = path.resolve("./public/da.png");
 
-try {
-  const logoPath = path.resolve("./public/da.png");
-  doc.image(logoPath, {
-    fit: [80, 80],
-    align: "right"
-  });
-} catch (e) {
-  console.log("Logo not found");
-}
+      doc.save();
+      doc.opacity(0.08);
+      doc.image(
+        watermarkPath,
+        (doc.page.width - 350) / 2,
+        (doc.page.height - 350) / 2,
+        { width: 350 }
+      );
+      doc.restore();
 
-// ===================== HEADER =====================
+    } catch (e) {
+      console.log("Watermark not loaded");
+    }
 
-doc
-  .font("Helvetica-Bold")
-  .fontSize(16)
-  .text("DEPARTMENT OF AGRICULTURE", { align: "center" });
+    // ================= LOGO (UPPER RIGHT) =================
+    try {
+      const logoPath = path.resolve("./public/da.png");
+      doc.image(logoPath, doc.page.width - 130, 40, { width: 80 });
+    } catch (e) {
+      console.log("Logo not found");
+    }
 
-doc
-  .fontSize(14)
-  .text("PREC STA. BARBARA", { align: "center" });
+    // ================= HEADER =================
 
-doc.moveDown(1);
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(16)
+      .text("DEPARTMENT OF AGRICULTURE", 0, 80, { align: "center" });
 
-doc
-  .fontSize(14)
-  .text("Seed History Report", { align: "center" });
+    doc
+      .fontSize(14)
+      .text("PREC STA. BARBARA", { align: "center" });
 
-doc.moveDown(0.5);
+    doc.moveDown(1);
 
-doc
-  .font("Helvetica")
-  .fontSize(10)
-  .text(`Process: ${process || "ALL"}`, { align: "center" });
+    doc
+      .fontSize(14)
+      .text("Seed History Report", { align: "center" });
 
-doc.text(
-  `Generated: ${new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })}`,
-  { align: "center" }
-);
+    doc.moveDown(0.5);
 
-doc.moveDown(2);
+    doc
+      .font("Helvetica")
+      .fontSize(10)
+      .text(`Process: ${process || "ALL"}`, { align: "center" });
 
-// ================= TABLE HEADER =================
+    doc.text(
+      `Generated: ${new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}`,
+      { align: "center" }
+    );
 
-const startX = 50;
-let y = doc.y;
+    doc.moveDown(2);
 
-const col1 = 50;   // #
-const col2 = 80;   // Serial
-const col3 = 320;  // Status
-const col4 = 390;  // Block
-const col5 = 440;  // Lot
+    // ================= TABLE HEADER =================
 
-doc.font("Helvetica-Bold");
+    let y = doc.y;
 
-doc.text("#", col1, y);
-doc.text("Serial Number", col2, y);
-doc.text("Status", col3, y);
-doc.text("Block", col4, y);
-doc.text("Lot", col5, y);
+    const col1 = 50;
+    const col2 = 90;
+    const col3 = 330;
+    const col4 = 410;
+    const col5 = 460;
 
-y += 20;
+    doc.font("Helvetica-Bold");
 
-doc.font("Helvetica");
+    doc.text("#", col1, y);
+    doc.text("Serial Number", col2, y);
+    doc.text("Status", col3, y);
+    doc.text("Block", col4, y);
+    doc.text("Lot", col5, y);
 
-// ================= TABLE DATA =================
+    y += 20;
 
-stocks.forEach((s, i) => {
+    doc.font("Helvetica");
 
-  if (y > 750) {
-    doc.addPage();
-    y = 50;
-  }
+    // ================= TABLE DATA =================
 
-  doc.text(String(i + 1), col1, y);
-  doc.text(s.tag || "-", col2, y, { width: 220 });
-  doc.text(s.status || "-", col3, y, { width: 60 });
-  doc.text(String(s.block ?? "-"), col4, y);
-  doc.text(String(s.lot ?? "-"), col5, y);
+    stocks.forEach((s, i) => {
 
-  y += 20;
-});
+      if (y > 750) {
+        doc.addPage();
+        y = 50;
+      }
 
-// ===================== FOOTER =====================
+      doc.text(String(i + 1), col1, y);
+      doc.text(s.tag || "-", col2, y, { width: 220 });
+      doc.text(s.status || "-", col3, y);
+      doc.text(String(s.block ?? "-"), col4, y);
+      doc.text(String(s.lot ?? "-"), col5, y);
 
-doc.moveDown(2);
-doc.font("Helvetica-Bold");
-doc.text(`Total Records: ${stocks.length}`, { align: "right" });
+      y += 20;
+    });
 
-doc.end();
+    // ================= FOOTER =================
+
+    doc.moveDown(2);
+    doc.font("Helvetica-Bold");
+    doc.text(`Total Records: ${stocks.length}`, { align: "right" });
+
+    doc.end();
 
   } catch (err) {
     console.error(err);
