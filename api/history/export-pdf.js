@@ -72,37 +72,45 @@ doc.text(
 
 doc.moveDown(2);
 
-// ===================== TABLE HEADER =====================
+// ================= TABLE HEADER =================
 
-doc.font("Helvetica-Bold").fontSize(10);
-
-doc.text("#", 50);
-doc.text("Serial Number", 70);
-doc.text("Status", 300);
-doc.text("Block", 380);
-doc.text("Lot", 430);
-
-doc.moveDown(0.5);
-doc.font("Helvetica");
-
-// ===================== TABLE DATA =====================
-
+const startX = 50;
 let y = doc.y;
 
+const col1 = 50;   // #
+const col2 = 80;   // Serial
+const col3 = 320;  // Status
+const col4 = 390;  // Block
+const col5 = 440;  // Lot
+
+doc.font("Helvetica-Bold");
+
+doc.text("#", col1, y);
+doc.text("Serial Number", col2, y);
+doc.text("Status", col3, y);
+doc.text("Block", col4, y);
+doc.text("Lot", col5, y);
+
+y += 20;
+
+doc.font("Helvetica");
+
+// ================= TABLE DATA =================
+
 stocks.forEach((s, i) => {
-
-  doc.text(i + 1, 50, y);
-  doc.text(s.tag || "-", 70, y);
-  doc.text(s.status || "-", 300, y);
-  doc.text(s.block ?? "-", 380, y);
-  doc.text(s.lot ?? "-", 430, y);
-
-  y += 20;
 
   if (y > 750) {
     doc.addPage();
     y = 50;
   }
+
+  doc.text(String(i + 1), col1, y);
+  doc.text(s.tag || "-", col2, y, { width: 220 });
+  doc.text(s.status || "-", col3, y, { width: 60 });
+  doc.text(String(s.block ?? "-"), col4, y);
+  doc.text(String(s.lot ?? "-"), col5, y);
+
+  y += 20;
 });
 
 // ===================== FOOTER =====================
