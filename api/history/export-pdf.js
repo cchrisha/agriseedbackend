@@ -55,11 +55,11 @@ try {
 doc
   .font("Helvetica-Bold")
   .fontSize(16)
-  .text("DEPARTMENT OF AGRICULTURE", { align: "center" });
+  .text("DEPARTMENT OF AGRICULTURE", 0, 80, { align: "center" });
 
 doc
   .fontSize(14)
-  .text("PREC STA. BARBARA", { align: "center" });
+  .text("PREC STA. BARBARA", 0, 50, { align: "center" });
 
 doc.moveDown(1);
 
