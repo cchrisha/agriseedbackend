@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     doc
       .font("Helvetica-Bold")
       .fontSize(16)
-      .text("DEPARTMENT OF AGRICULTURE", 0, 80, { align: "center" });
+      .text("DEPARTMENT OF AGRICULTURE", { align: "center" });
 
     doc
       .fontSize(14)
