@@ -1,6 +1,5 @@
 import dbConnect from "../../lib/db.js";
 import SeedStock from "../../models/SeedStock.js";
-import Seed from "../../models/Seed.js";
 import path from "path";
 import PDFDocument from "pdfkit";
 
@@ -53,55 +52,24 @@ export default async function handler(req, res) {
       console.log("Watermark not loaded");
     }
 
-// ================= HEADER (PROPER BALANCED LAYOUT) =================
+    // // ================= LOGO (UPPER RIGHT) =================
+    // try {
+    //   const logoPath = path.resolve("./public/da.png");
+    //   doc.image(logoPath, doc.page.width - 130, 40, { width: 80 });
+    // } catch (e) {
+    //   console.log("Logo not found");
+    // }
 
-const headerTop = 80;
-const logoSize = 90;
-const leftMargin = 45;
+    // ================= HEADER =================
 
-// ===== LOGO LEFT =====
-try {
-  const logoPath = path.resolve("./public/da.png");
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(16)
+      .text("DEPARTMENT OF AGRICULTURE", 0, 80, { align: "center" });
 
-  doc.image(
-    logoPath,
-    leftMargin,
-    headerTop - 10,
-    { width: logoSize }
-  );
-
-} catch (e) {
-  console.log("Logo not found");
-}
-
-// ===== TEXT POSITION =====
-// Instead of full page center,
-// center relative to page width
-
-const textWidth = doc.page.width - (leftMargin + logoSize + 40);
-const textStartX = leftMargin + logoSize + 20;
-
-doc
-  .font("Helvetica-Bold")
-  .fontSize(22)
-  .text(
-    "DEPARTMENT OF AGRICULTURE",
-    textStartX,
-    headerTop,
-    { width: textWidth, align: "center" }
-  );
-
-doc
-  .fontSize(16)
-  .text(
-    "PREC STA. BARBARA",
-    textStartX,
-    headerTop + 30,
-    { width: textWidth, align: "center" }
-  );
-
-// Move cursor below header
-doc.y = headerTop + 110;
+    doc
+      .fontSize(14)
+      .text("PREC STA. BARBARA", { align: "center" });
 
     doc.moveDown(1);
 
