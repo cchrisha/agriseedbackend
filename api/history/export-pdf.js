@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       console.log("Watermark not loaded");
     }
 
-// ================= HEADER (CENTER TEXT + RIGHT LOGO) =================
+// ================= HEADER (CENTER TEXT + LEFT LOGO) =================
 
 const headerTop = 80;
 const logoSize = 85;
@@ -72,14 +72,14 @@ doc
     align: "center"
   });
 
-// ===== LOGO ON RIGHT =====
+// ===== LOGO ON LEFT =====
 try {
   const logoPath = path.resolve("./public/da.png");
 
   doc.image(
     logoPath,
-    doc.page.width - 120,  // right side position
-    headerTop - 10,        // vertical alignment with text
+    60,                // LEFT position (margin area)
+    headerTop - 10,    // vertical alignment with text
     { width: logoSize }
   );
 
