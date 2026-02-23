@@ -53,33 +53,20 @@ export default async function handler(req, res) {
       console.log("Watermark not loaded");
     }
 
-// ================= HEADER (CENTER TEXT + LEFT LOGO) =================
+// ================= HEADER (PROPER BALANCED LAYOUT) =================
 
 const headerTop = 80;
-const logoSize = 85;
+const logoSize = 90;
+const leftMargin = 60;
 
-// ===== CENTERED TEXT =====
-doc
-  .font("Helvetica-Bold")
-  .fontSize(20)
-  .text("DEPARTMENT OF AGRICULTURE", 0, headerTop, {
-    align: "center"
-  });
-
-doc
-  .fontSize(16)
-  .text("PREC STA. BARBARA", {
-    align: "center"
-  });
-
-// ===== LOGO ON LEFT =====
+// ===== LOGO LEFT =====
 try {
   const logoPath = path.resolve("./public/da.png");
 
   doc.image(
     logoPath,
-    60,                // LEFT position (margin area)
-    headerTop - 10,    // vertical alignment with text
+    leftMargin,
+    headerTop - 10,
     { width: logoSize }
   );
 
@@ -87,8 +74,34 @@ try {
   console.log("Logo not found");
 }
 
-// Move cursor below header block
-doc.y = headerTop + 90;
+// ===== TEXT POSITION =====
+// Instead of full page center,
+// center relative to page width
+
+const textWidth = doc.page.width - (leftMargin + logoSize + 40);
+const textStartX = leftMargin + logoSize + 20;
+
+doc
+  .font("Helvetica-Bold")
+  .fontSize(22)
+  .text(
+    "DEPARTMENT OF AGRICULTURE",
+    textStartX,
+    headerTop,
+    { width: textWidth, align: "center" }
+  );
+
+doc
+  .fontSize(16)
+  .text(
+    "PREC STA. BARBARA",
+    textStartX,
+    headerTop + 30,
+    { width: textWidth, align: "center" }
+  );
+
+// Move cursor below header
+doc.y = headerTop + 110;
 
     doc.moveDown(1);
 
