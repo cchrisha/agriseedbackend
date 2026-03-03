@@ -17,38 +17,39 @@ export default async function handler(req, res) {
     }
 
     // ========================
-    // POST - CREATE BLOCK
-    // ========================
-    if (req.method === "POST") {
-      const { name, lots, slotsPerLot } = req.body;
+// POST - CREATE BLOCK
+// ========================
+if (req.method === "POST") {
 
-      // 🔥 Get highest blockNumber
-      const lastBlock = await LegendaryBlock.findOne()
-        .sort({ blockNumber: -1 });
+  const { name, lots, slotsPerLot } = req.body;
 
-      // Start legendary at 100
-      const nextBlockNumber = lastBlock
-        ? lastBlock.blockNumber + 1
-        : 100;
+  // Get highest VALID blockNumber
+  const lastBlock = await LegendaryBlock.findOne({
+    blockNumber: { $exists: true }
+  }).sort({ blockNumber: -1 });
 
-      // Create Legendary Block
-      const block = await LegendaryBlock.create({
-        name: name || "Legendary Block",
-        blockNumber: nextBlockNumber,
-        lots: lots || 2,
-        slotsPerLot: slotsPerLot || 200,
-      });
+  const nextBlockNumber =
+    lastBlock && typeof lastBlock.blockNumber === "number"
+      ? lastBlock.blockNumber + 1
+      : 100;
 
-      // 🔥 Auto create Lot documents
-      for (let i = 1; i <= block.lots; i++) {
-        await Lot.create({
-          block: block.blockNumber,
-          lot: i,
-        });
-      }
+  const block = await LegendaryBlock.create({
+    name: name || "Legendary Block",
+    blockNumber: nextBlockNumber,
+    lots: lots || 2,
+    slotsPerLot: slotsPerLot || 200,
+  });
 
-      return res.json(block);
-    }
+  // Auto create lots
+  for (let i = 1; i <= block.lots; i++) {
+    await Lot.create({
+      block: block.blockNumber,
+      lot: i,
+    });
+  }
+
+  return res.json(block);
+}
 
     // ========================
     // DELETE - REMOVE BLOCK
