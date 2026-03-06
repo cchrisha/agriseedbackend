@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       // Auto increment
       const nextBlockNumber = lastBlock
         ? lastBlock.blockNumber + 1
-        : 100;
+        : 13;
 
       // Create block
       const block = await LegendaryBlock.create({
