@@ -3,107 +3,148 @@ import LegendaryBlock from "../../models/LegendaryBlock.js";
 import Lot from "../../models/Lot.js";
 
 export default async function handler(req, res) {
+
   await dbConnect();
 
   try {
-    // ========================
-    // GET - LIST BLOCKS
-    // ========================
+
+    // =====================================
+    // GET - LIST ALL BLOCKS
+    // =====================================
     if (req.method === "GET") {
-      const blocks = await LegendaryBlock.find()
+
+      const blocks = await LegendaryBlock
+        .find()
         .sort({ blockNumber: 1 });
 
-      return res.json(blocks);
+      return res.status(200).json(blocks);
     }
 
-    // ========================
-// POST - CREATE BLOCK
-// ========================
-if (req.method === "POST") {
+    // =====================================
+    // POST - CREATE LEGENDARY BLOCK
+    // =====================================
+    if (req.method === "POST") {
 
-  const { name, lots, slotsPerLot } = req.body;
+      const { name, lots, slotsPerLot } = req.body;
 
-  // Get highest VALID blockNumber
-  const lastBlock = await LegendaryBlock.findOne({
-    blockNumber: { $exists: true }
-  }).sort({ blockNumber: -1 });
+      // Get last block
+      const lastBlock = await LegendaryBlock
+        .findOne()
+        .sort({ blockNumber: -1 });
 
-  const nextBlockNumber =
-    lastBlock && typeof lastBlock.blockNumber === "number"
-      ? lastBlock.blockNumber + 1
-      : 100;
+      // Auto increment
+      const nextBlockNumber = lastBlock
+        ? lastBlock.blockNumber + 1
+        : 100;
 
-  const block = await LegendaryBlock.create({
-    name: name || "Legendary Block",
-    blockNumber: nextBlockNumber,
-    lots: lots || 2,
-    slotsPerLot: slotsPerLot || 200,
-  });
+      // Create block
+      const block = await LegendaryBlock.create({
+        name: name || "Legendary Block",
+        blockNumber: nextBlockNumber,
+        lots: lots || 2,
+        slotsPerLot: slotsPerLot || 200,
+      });
 
-  // Auto create lots
-  for (let i = 1; i <= block.lots; i++) {
-    await Lot.create({
-      block: block.blockNumber,
-      lot: i,
-    });
-  }
+      // Auto create lots
+      for (let i = 1; i <= block.lots; i++) {
 
-  return res.json(block);
-}
+        await Lot.create({
+          block: block.blockNumber,
+          lot: i,
+          seed: null,
+        });
 
-    // ========================
-    // DELETE - REMOVE BLOCK
-    // ========================
+      }
+
+      return res.status(200).json({
+        message: "Legendary block created",
+        data: block
+      });
+    }
+
+    // =====================================
+    // PUT - UPDATE BLOCK
+    // =====================================
+    if (req.method === "PUT") {
+
+      const { id, name, lots, slotsPerLot } = req.body;
+
+      const updated = await LegendaryBlock.findByIdAndUpdate(
+        id,
+        {
+          name,
+          lots,
+          slotsPerLot,
+        },
+        { new: true }
+      );
+
+      if (!updated) {
+        return res.status(404).json({
+          message: "Block not found"
+        });
+      }
+
+      return res.status(200).json({
+        message: "Block updated",
+        data: updated
+      });
+    }
+
+    // =====================================
+    // DELETE BLOCK
+    // =====================================
     if (req.method === "DELETE") {
+
       const { id } = req.body;
 
       const block = await LegendaryBlock.findById(id);
 
-      if (!block)
-        return res.status(404).json({ message: "Block not found" });
+      if (!block) {
+        return res.status(404).json({
+          message: "Block not found"
+        });
+      }
 
-      // 🔥 Optional safety: check if any lot has seed
+      // Check if any lot has seed
       const plantedLot = await Lot.findOne({
         block: block.blockNumber,
-        seed: { $ne: null },
+        seed: { $ne: null }
       });
 
       if (plantedLot) {
         return res.status(400).json({
-          message: "Cannot delete block with planted seeds",
+          message: "Cannot delete block with planted seeds"
         });
       }
 
-      // Delete lots first
+      // Delete lots
       await Lot.deleteMany({
-        block: block.blockNumber,
+        block: block.blockNumber
       });
 
       // Delete block
       await LegendaryBlock.findByIdAndDelete(id);
 
-      return res.json({ message: "Deleted successfully" });
+      return res.status(200).json({
+        message: "Block deleted successfully"
+      });
     }
 
-    // ========================
-    // PUT - UPDATE BLOCK
-    // ========================
-    if (req.method === "PUT") {
-      const { id, name, lots, slotsPerLot } = req.body;
+    // =====================================
+    // METHOD NOT ALLOWED
+    // =====================================
+    return res.status(405).json({
+      message: "Method not allowed"
+    });
 
-      const updated = await LegendaryBlock.findByIdAndUpdate(
-        id,
-        { name, lots, slotsPerLot },
-        { new: true }
-      );
+  } catch (error) {
 
-      return res.json(updated);
-    }
+    console.error(error);
 
-    return res.status(405).json({ message: "Method not allowed" });
+    return res.status(500).json({
+      message: error.message
+    });
 
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: err.message });
   }
 }
