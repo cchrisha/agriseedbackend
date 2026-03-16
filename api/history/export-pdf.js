@@ -1,8 +1,8 @@
-// import dbConnect from "../../lib/db.js";
-// import SeedStock from "../../models/SeedStock.js";
-// import Seed from "../../models/Seed.js";
-// import path from "path";
-// import PDFDocument from "pdfkit";
+import dbConnect from "../../lib/db.js";
+import SeedStock from "../../models/SeedStock.js";
+import Seed from "../../models/Seed.js";
+import path from "path";
+import PDFDocument from "pdfkit";
 
 // export default async function handler(req, res) {
 
@@ -149,12 +149,6 @@
 //     return res.status(500).json({ message: err.message });
 //   }
 // }
-
-
-import dbConnect from "../../lib/db.js";
-import SeedStock from "../../models/SeedStock.js";
-import path from "path";
-import PDFDocument from "pdfkit";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
