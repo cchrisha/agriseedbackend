@@ -54,7 +54,7 @@ export default async function handler(req, res) {
         seedName: seed.name,
         seedTag: seed.tag,
         quantity: 0,
-        process: "PLANTED",
+        process: "ASSIGNED-LOT",
       });
 
       return res.json({ message: "Seed planted", data: planted });

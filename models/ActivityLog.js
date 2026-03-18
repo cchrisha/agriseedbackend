@@ -26,14 +26,12 @@ const ActivityLogSchema = new mongoose.Schema(
     process: {
       type: String,
       enum: [
-        "PLANTED",
+        "ASSIGNED-LOT",
         "CREATED",
         "DELETED",
-        "STOCK-IN",
         "AVAILABLE",
         "STOCK-OUT",
         "MORTALITY",
-        "REPLACED",
       ],
     },
   },
