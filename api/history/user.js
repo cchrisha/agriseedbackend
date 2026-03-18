@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     }
 
     const logs = await ActivityLog.find({
-      process: { $nin: ["CREATED", "DELETED"] },
+      process: { $nin: ["CREATED", "DELETED","ASSIGNED-LOT"] },
     })
       .select("seedTag seedName quantity process createdAt")
       .sort({ createdAt: -1 });
